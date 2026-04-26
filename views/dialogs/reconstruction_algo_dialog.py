@@ -2,6 +2,8 @@ import sys
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                              QLabel, QComboBox, QPushButton)
 from PyQt5.QtCore import Qt
+from views import style
+
 
 class ReconstructionAlgoDialog(QDialog):
     def __init__(self, parent_app=None):
@@ -11,7 +13,6 @@ class ReconstructionAlgoDialog(QDialog):
         self.setMinimumSize(450, 200)
         self.resize(450, 200)
         
-        import style
         self.setStyleSheet(style.MODERN_STYLE)
         
         layout = QVBoxLayout()

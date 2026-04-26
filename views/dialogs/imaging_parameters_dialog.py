@@ -7,6 +7,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon
 from matplotlib.transforms import Affine2D
+from views import style
+
 
 class ImagingParametersDialog(QDialog):
     def __init__(self, parent_app, current_beam_geom, current_reco, ma):
@@ -18,7 +20,6 @@ class ImagingParametersDialog(QDialog):
         
         self.setWindowTitle("Select Scan Parameters")
         self.resize(1050, 700)
-        import style
         style.apply_matplotlib_theme()
         self.setStyleSheet(style.MODERN_STYLE)
 

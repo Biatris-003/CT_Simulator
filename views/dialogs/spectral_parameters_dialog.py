@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
+from views import style
+
 
 class SpectralParametersDialog(QDialog):
     def __init__(self, parent_app, q, minE, maxE):
@@ -18,7 +20,6 @@ class SpectralParametersDialog(QDialog):
         self.setMinimumSize(700, 450)
         self.resize(700, 450)
         
-        import style
         style.apply_matplotlib_theme()
         self.setStyleSheet(style.MODERN_STYLE)
 

@@ -9,18 +9,19 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import datetime
 
-from BeamGeometry_v_1_4 import BeamGeometryDialog
-from ImagingParameters_v_1_4 import ImagingParametersDialog
-from ReconstructionAlgo_v_1_4 import ReconstructionAlgoDialog
-from spectraTool_v_1_4 import SpectraToolDialog
-from spectralParameters_v_1_4 import SpectralParametersDialog
+from views.dialogs.beam_geometry_dialog import BeamGeometryDialog
+from views.dialogs.imaging_parameters_dialog import ImagingParametersDialog
+from views.dialogs.reconstruction_algo_dialog import ReconstructionAlgoDialog
+from views.dialogs.spectra_tool_dialog import SpectraToolDialog
+from views.dialogs.spectral_parameters_dialog import SpectralParametersDialog
+from views import style
+
 
 class SimulatorCTLabApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("CTlab Simulator v1.4")
         self.resize(1600, 900)
-        import style
         style.apply_matplotlib_theme()
         self.setStyleSheet(style.MODERN_STYLE)
 
