@@ -61,30 +61,14 @@ class SpectraToolDialog(QDialog):
         ev_group.setLayout(ev_layout)
         right_layout.addWidget(ev_group)
 
-        # Filtration Panel
-        filt_group = QGroupBox("Filtration")
-        filt_layout = QGridLayout()
-        filt_layout.addWidget(QLabel("Aluminium (mm)"), 0, 0)
-        self.edit_al = QLineEdit("0.0")
-        filt_layout.addWidget(self.edit_al, 0, 1)
-        
-        filt_layout.addWidget(QLabel("Copper (mm)"), 1, 0)
-        self.edit_cu = QLineEdit("0.0")
-        filt_layout.addWidget(self.edit_cu, 1, 1)
-        filt_group.setLayout(filt_layout)
-        right_layout.addWidget(filt_group)
-
         # Operate Panel
         op_group = QGroupBox("Operate")
         op_layout = QVBoxLayout()
         self.btn_gen = QPushButton("Generate spectrum")
         self.btn_gen.clicked.connect(self.on_generate)
-        self.btn_save = QPushButton("Save spectrum")
-        self.btn_save.clicked.connect(self.on_save)
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.close)
         op_layout.addWidget(self.btn_gen)
-        op_layout.addWidget(self.btn_save)
         op_layout.addWidget(self.btn_close)
         op_group.setLayout(op_layout)
         right_layout.addWidget(op_group)
@@ -92,17 +76,12 @@ class SpectraToolDialog(QDialog):
         self.q = None
         self.kVp = 0
         self.mA = 0
-        self.Al = 0.0
-        self.Cu = 0.0
 
     def on_generate(self):
         self.kVp = self.kv_slider.value()
         self.mA = self.ma_slider.value()
-        try:
-            self.Al = float(self.edit_al.text())
-            self.Cu = float(self.edit_cu.text())
-        except ValueError:
-            pass
+        self.Al = 0.0
+        self.Cu = 0.0
 
         # Realistic spectrum generation (Tungsten target)
         energies = np.arange(2.0, self.kVp + 1.0, 1.0)
@@ -166,8 +145,6 @@ class SpectraToolDialog(QDialog):
         if self.parent_app and hasattr(self.parent_app, 'chosen_spectrum'):
             # energies and q are passed. MATLAB passes q as array
             self.parent_app.chosen_spectrum(self.q, energies, self.kVp, self.mA, self.Cu, self.Al)
-            
-        self.btn_gen.setEnabled(False)
 
     def on_save(self):
         # Implement saving if needed
