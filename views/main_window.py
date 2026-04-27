@@ -145,6 +145,15 @@ class SimulatorCTLabApp(QMainWindow):
         self.right_column.addWidget(self.btn_reconstruct_algo)
         self.right_column.addWidget(self.btn_reconstruct)
 
+        # Advanced Reconstruction
+        advanced_recon_group = QGroupBox("Advanced Reconstruction")
+        advanced_recon_layout = QVBoxLayout()
+        self.btn_sparse_fbp = QPushButton("Sparse Reconstruction (FBP)")
+        self.btn_sparse_fbp.clicked.connect(self.show_sparse_reconstruction_dialog)
+        advanced_recon_layout.addWidget(self.btn_sparse_fbp)
+        advanced_recon_group.setLayout(advanced_recon_layout)
+        self.right_column.addWidget(advanced_recon_group)
+
         # Histogram 
         self.fig_hist, self.ax_hist = plt.subplots(facecolor='#1E1E2E')
         self.canvas_hist = FigureCanvas(self.fig_hist)
@@ -306,6 +315,12 @@ class SimulatorCTLabApp(QMainWindow):
         t = datetime.datetime.now().strftime("%d-%b-%Y %H:%M:%S")
         self.param_info_listbox.addItem(f"{t} <Bin size: {self.binSize}keV>")
         self.param_info_listbox.addItem(f"{t} <Number of bins: {self.bin}>")
+
+    def show_sparse_reconstruction_dialog(self):
+        """Show dialog for sparse reconstruction with FBP"""
+        from views.dialogs.sparse_reconstruction_dialog import SparseReconstructionDialog
+        dlg = SparseReconstructionDialog(self)
+        dlg.exec()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
