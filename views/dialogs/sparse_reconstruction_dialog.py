@@ -25,8 +25,8 @@ class SparseReconstructionDialog(QDialog):
         super().__init__(parent_app)
         self.parent_app = parent_app
         self.setWindowTitle("Sparse Reconstruction using FBP")
-        self.setMinimumSize(1400, 900)
-        self.resize(1400, 900)
+        self.setMinimumSize(1300, 800)
+        self.resize(1300, 800)
         
         style.apply_matplotlib_theme()
         self.setStyleSheet(style.MODERN_STYLE)
@@ -53,12 +53,6 @@ class SparseReconstructionDialog(QDialog):
         self.angle_step.setToolTip("Angular step size between projections (e.g., 10°)")
         param_layout.addWidget(self.angle_step, 0, 3)
         
-        # Spectrum info label
-        param_layout.addWidget(QLabel("Spectrum:"), 0, 4)
-        self.spectrum_info = QLabel("None")
-        self.spectrum_info.setStyleSheet("color: #FFD700; font-weight: bold;")
-        param_layout.addWidget(self.spectrum_info, 0, 5)
-        
         param_group.setLayout(param_layout)
         main_layout.addWidget(param_group)
         
@@ -75,39 +69,7 @@ class SparseReconstructionDialog(QDialog):
         self.fig = plt.figure(figsize=(16, 10), facecolor='#1E1E2E')
         self.canvas = FigureCanvas(self.fig)
         main_layout.addWidget(self.canvas, 1)
-        
-        # Connect listeners for linking angle_step and num_projections
-        self.num_projections.valueChanged.connect(self.on_num_projections_changed)
-        self.angle_step.valueChanged.connect(self.on_angle_step_changed)
-        self.linking_enabled = True
-        
-    def on_num_projections_changed(self, value):
-        """When num_projections changes, automatically update angle_step"""
-        if not self.linking_enabled:
-            return
-        
-        self.linking_enabled = False
-        # Calculate angle_step = 360 / num_projections
-        if value > 0:
-            new_step = 360.0 / value
-            # Clamp to valid range
-            new_step = max(1.0, min(90.0, new_step))
-            self.angle_step.setValue(new_step)
-        self.linking_enabled = True
     
-    def on_angle_step_changed(self, value):
-        """When angle_step changes, automatically update num_projections"""
-        if not self.linking_enabled:
-            return
-        
-        self.linking_enabled = False
-        # Calculate num_projections = 360 / angle_step
-        if value > 0:
-            new_projections = int(360.0 / value)
-            # Clamp to valid range
-            new_projections = max(4, min(360, new_projections))
-            self.num_projections.setValue(new_projections)
-        self.linking_enabled = True
 
         
     def run_comparison(self):
@@ -144,14 +106,6 @@ class SparseReconstructionDialog(QDialog):
         kVp = getattr(self.parent_app, 'kVp', 100)
         mA = getattr(self.parent_app, 'mA', 1)
         
-        # Update spectrum info display
-        if spectrum is not None and energies is not None:
-            self.spectrum_info.setText(f"Active (kVp={kVp}, mA={mA})")
-            self.spectrum_info.setStyleSheet("color: #00FF00; font-weight: bold;")
-        else:
-            self.spectrum_info.setText("None")
-            self.spectrum_info.setStyleSheet("color: #FFD700; font-weight: bold;")
-        
         # Process sparse reconstruction with spectrum
         sparse_results = SparseReconstruction.process_with_spectrum(
             loaded_phantom=phantom,
@@ -182,48 +136,39 @@ class SparseReconstructionDialog(QDialog):
             hp_strength=0.0
         )
         
-        # Calculate error metrics
-        # NMSE and PSNR between original phantom and full sinogram reconstruction
-        metrics_phantom_vs_dense = ComparisonReconstruction.compute_reconstruction_error(
-            phantom, dense_results['reconstructed']
-        )
-        
-        # NMSE and PSNR between sparse and dense reconstructions
-        metrics_sparse_vs_dense = ComparisonReconstruction.compute_reconstruction_error(
-            sparse_results['reconstructed'], dense_results['reconstructed']
-        )
-        
         # Clear figure
         self.fig.clear()
         
-        # Create custom layout: 3 columns with varying rows
-        # Column 0: Sparse sinogram (row 0-2), Sparse recon (row 3-5)
-        # Column 1: Full sinogram (row 0-2), Full recon (row 3-5)
-        # Column 2: Attenuation map (row 0-1), Original phantom (row 2-3), Full recon (row 4-5)
-        # NMSE/PSNR text between images
+        # Create custom layout: 2 rows, 4 columns
+        # Row 0: Attenuation maps and sinograms
+        # Row 1: Reconstructions
+        gs = self.fig.add_gridspec(2, 4, hspace=0.4, wspace=0.2)
         
-        gs = self.fig.add_gridspec(6, 3, hspace=0.25, wspace=0.3)
+        ax_att_map = self.fig.add_subplot(gs[0, 0])
+        ax_sparse_sino = self.fig.add_subplot(gs[0, 1])
+        ax_dense_sino = self.fig.add_subplot(gs[0, 2])
+        ax_spare_colorbar = self.fig.add_subplot(gs[0, 3])
         
-        # Column 0: Sparse sinogram and reconstruction
-        ax_sparse_sino = self.fig.add_subplot(gs[0:2, 0])
-        ax_sparse_recon = self.fig.add_subplot(gs[3:6, 0])
+        ax_sparse_recon = self.fig.add_subplot(gs[1, 0])
+        ax_phantom = self.fig.add_subplot(gs[1, 1])
+        ax_dense_recon = self.fig.add_subplot(gs[1, 2:4])
         
-        # Column 1: Full sinogram and reconstruction
-        ax_dense_sino = self.fig.add_subplot(gs[0:2, 1])
-        ax_dense_recon = self.fig.add_subplot(gs[3:6, 1])
-        
-        # Column 2: Attenuation map, Original phantom, Full recon (from dense)
-        ax_att_map = self.fig.add_subplot(gs[0:2, 2])
-        ax_phantom = self.fig.add_subplot(gs[2:4, 2])
-        ax_dense_recon_col2 = self.fig.add_subplot(gs[4:6, 2])
-        
-        # Set background colors
-        for ax in [ax_sparse_sino, ax_sparse_recon, ax_dense_sino, ax_dense_recon, 
-                   ax_att_map, ax_phantom, ax_dense_recon_col2]:
+        for ax in [ax_att_map, ax_sparse_sino, ax_dense_sino, ax_sparse_recon, ax_phantom, ax_dense_recon]:
             ax.set_facecolor('#282A36')
         
-        # ===== COLUMN 0: SPARSE RECONSTRUCTION =====
-        # Sparse Sinogram (top)
+        ax_spare_colorbar.set_facecolor('#282A36')
+        ax_spare_colorbar.axis('off')
+        
+        # Plot 0: Attenuation Map (top-left)
+        att_map = sparse_results['attenuation_map']
+        im_att = ax_att_map.imshow(att_map, cmap='viridis')
+        ax_att_map.set_title(
+            f"Attenuation Map (μ)\nMaterial-based, density-dependent",
+            color='white', fontsize=10, fontweight='bold'
+        )
+        ax_att_map.axis('off')
+        
+        # Plot 1: Sparse Sinogram (top-left-center) - detected sinogram with spectrum effects
         ax_sparse_sino.imshow(sparse_results['detected_sinogram'], cmap='gray', aspect='auto')
         ax_sparse_sino.set_title(
             f"Sparse Sinogram ({num_sparse}@{angle_sparse}°)\nkVp={kVp}, mA={mA}",
@@ -233,16 +178,7 @@ class SparseReconstructionDialog(QDialog):
         ax_sparse_sino.set_ylabel('Projection', color='white', fontsize=8)
         ax_sparse_sino.tick_params(colors='white', labelsize=7)
         
-        # Sparse Reconstruction (bottom)
-        ax_sparse_recon.imshow(sparse_results['reconstructed'], cmap='gray')
-        ax_sparse_recon.set_title(
-            f"Sparse Recon ({num_sparse} projections)",
-            color='white', fontsize=10, fontweight='bold'
-        )
-        ax_sparse_recon.axis('off')
-        
-        # ===== COLUMN 1: FULL/DENSE RECONSTRUCTION =====
-        # Full Sinogram (top)
+        # Plot 2: Dense Sinogram (top-right-center) - detected sinogram with spectrum effects
         ax_dense_sino.imshow(dense_results['detected_sinogram'], cmap='gray', aspect='auto')
         ax_dense_sino.set_title(
             f"Full Sinogram (360@1°)\nkVp={kVp}, mA={mA}",
@@ -252,36 +188,15 @@ class SparseReconstructionDialog(QDialog):
         ax_dense_sino.set_ylabel('Projection', color='white', fontsize=8)
         ax_dense_sino.tick_params(colors='white', labelsize=7)
         
-        # Full Reconstruction (bottom) 
-        ax_dense_recon.imshow(dense_results['reconstructed'], cmap='gray')
-        
-        # Display NMSE and PSNR between sparse and full reconstructions IN BETWEEN
-        nmse_sv = metrics_sparse_vs_dense['nmse']
-        psnr_sv = metrics_sparse_vs_dense['psnr']
-        metrics_text = f"Sparse vs Full:\nNMSE: {nmse_sv:.4f}\nPSNR: {psnr_sv:.2f} dB"
-        ax_dense_recon.text(0.5, 0.5, metrics_text, 
-                           transform=ax_dense_recon.transAxes,
-                           fontsize=9, color='#FFD700', fontweight='bold',
-                           ha='center', va='center',
-                           bbox=dict(boxstyle='round', facecolor='black', alpha=0.8))
-        
-        ax_dense_recon.set_title(
-            f"Full Recon (360°) - Reference",
+        # Plot 3: Sparse Reconstruction (bottom-left)
+        ax_sparse_recon.imshow(sparse_results['reconstructed'], cmap='gray')
+        ax_sparse_recon.set_title(
+            f"Sparse FBP ({num_sparse} projections)",
             color='white', fontsize=10, fontweight='bold'
         )
-        ax_dense_recon.axis('off')
+        ax_sparse_recon.axis('off')
         
-        # ===== COLUMN 2: REFERENCE IMAGES & METRICS =====
-        # Attenuation Map (top)
-        att_map = sparse_results['attenuation_map']
-        im_att = ax_att_map.imshow(att_map, cmap='viridis')
-        ax_att_map.set_title(
-            f"Attenuation Map (μ)",
-            color='white', fontsize=10, fontweight='bold'
-        )
-        ax_att_map.axis('off')
-        
-        # Original Phantom (middle)
+        # Plot 4: Original Phantom (bottom-left-center)
         ax_phantom.imshow(phantom, cmap='gray')
         ax_phantom.set_title(
             'Original Phantom',
@@ -289,23 +204,12 @@ class SparseReconstructionDialog(QDialog):
         )
         ax_phantom.axis('off')
         
-        # Full Reconstruction from dense sinogram (bottom) with metrics overlay
-        ax_dense_recon_col2.imshow(dense_results['reconstructed'], cmap='gray')
-        
-        # Display NMSE and PSNR between phantom and full reconstruction IN BETWEEN
-        nmse_pv = metrics_phantom_vs_dense['nmse']
-        psnr_pv = metrics_phantom_vs_dense['psnr']
-        metrics_text2 = f"Phantom vs Full:\nNMSE: {nmse_pv:.4f}\nPSNR: {psnr_pv:.2f} dB"
-        ax_dense_recon_col2.text(0.5, 0.5, metrics_text2,
-                                transform=ax_dense_recon_col2.transAxes,
-                                fontsize=9, color='#FFD700', fontweight='bold',
-                                ha='center', va='center',
-                                bbox=dict(boxstyle='round', facecolor='black', alpha=0.8))
-        
-        ax_dense_recon_col2.set_title(
-            f"Dense Recon (360°)",
+        # Plot 5: Dense Reconstruction (bottom-right)
+        ax_dense_recon.imshow(dense_results['reconstructed'], cmap='gray')
+        ax_dense_recon.set_title(
+            f"Dense FBP (360°) - Reference",
             color='white', fontsize=10, fontweight='bold'
         )
-        ax_dense_recon_col2.axis('off')
+        ax_dense_recon.axis('off')
         
         self.canvas.draw()
