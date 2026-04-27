@@ -53,6 +53,7 @@ class SimulatorCTLabApp(QMainWindow):
         self.init_left_column()
         self.init_middle_column()
         self.init_right_column()
+        self.load_phantom()  # Auto-load phantom on startup
 
     def init_left_column(self):
 
@@ -60,9 +61,6 @@ class SimulatorCTLabApp(QMainWindow):
         # Start Simulation
         start_sim_group = QGroupBox("START SIMULATION")
         start_sim_layout = QVBoxLayout()
-        self.btn_load_phantom = QPushButton("Load Phantom")
-        self.btn_load_phantom.clicked.connect(self.load_phantom)
-        start_sim_layout.addWidget(self.btn_load_phantom)
         start_sim_group.setLayout(start_sim_layout)
         self.left_column.addWidget(start_sim_group)
 
@@ -114,9 +112,7 @@ class SimulatorCTLabApp(QMainWindow):
         x_btn_layout = QHBoxLayout()
         self.btn_gen_spectrum = QPushButton("Generate Spectrum")
         self.btn_gen_spectrum.clicked.connect(self.show_spectra_tool)
-        self.btn_load_spectrum = QPushButton("Load Spectrum")
         x_btn_layout.addWidget(self.btn_gen_spectrum)
-        x_btn_layout.addWidget(self.btn_load_spectrum)
         xray_layout.addLayout(x_btn_layout)
         xray_layout.addWidget(self.canvas_xray, 1)
         xray_group.setLayout(xray_layout)
