@@ -216,7 +216,19 @@ class FBPMetricDialog(QDialog):
         self.step_angle = self.step_slider.value()
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
+        # Sync back to parent
+        if self.parent() and hasattr(self.parent(), 'sync_step_angle_from_dialog'):
+            self.parent().sync_step_angle_from_dialog(self.step_angle)
 
+    def sync_step_angle_from_main(self, step_angle):
+        """Sync step_angle from main window to this dialog"""
+        self.step_angle = int(step_angle)
+        self.step_slider.blockSignals(True)
+        self.step_slider.setValue(self.step_angle)
+        self.step_slider.blockSignals(False)
+        self.step_label.setText(f"{self.step_angle}°")
+        self._recompute_and_render()
+        
     def _recompute_and_render(self):
         if self.original is None or self.total_i0 is None:
             self._render()

@@ -82,6 +82,7 @@ class SimulatorCTLabApp(QMainWindow):
         self._cached_full_lsr = None     # Cache for full LSR reconstruction
         self._cached_lsr_iterations = None
 
+        # ================= GLOBAL STATE =================
         self.kVp = 100
         self.mA = 2
         self.Cu = 0.0
@@ -89,6 +90,9 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.step_angle = 1
         self.iterations = 10
+        
+        # Track all dialogs for synchronization
+        self.active_dialogs = []
 
         # ================= CENTRAL =================
         central_widget = QWidget()
@@ -363,40 +367,6 @@ class SimulatorCTLabApp(QMainWindow):
 
         self._render_fbp_nmse(full_fbp, sparse_fbp)
 
-    # def _render_sparse_lsr_only(self):
-    #     """Render LSR reconstruction (sparse) in main window"""
-    #     if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
-    #         return
-
-    #     # Compute sparse LSR with current iterations
-    #     sparse_lsr = IterativeReconstruction.sirt_reconstruction_fast(
-    #         self._cached_sparse_sino,
-    #         self._cached_sparse_angles,
-    #         iterations=self.iterations,
-    #         damping_factor=0.5,
-    #         verbose=False
-    #     )
-
-    #     # Compute full LSR for reference (cache it)
-    #     if self._cached_full_lsr is None:
-    #         self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction_fast(
-    #             self._cached_full_sino,
-    #             self._cached_full_angles,
-    #             iterations=self.iterations,
-    #             damping_factor=0.5,
-    #             verbose=False
-    #         )
-
-    #     self.ax_lsr_sparse.clear()
-    #     self.ax_lsr_sparse.set_facecolor("black")
-    #     self.ax_lsr_sparse.imshow(sparse_lsr, cmap="gray")
-    #     self.ax_lsr_sparse.set_title(f"Sparse LSR @ mA: {self.mA}, kVp: {self.kVp}, iter: {self.iterations}", 
-    #                                  color="white")
-    #     self.ax_lsr_sparse.axis("off")
-    #     self.canvas_lsr_sparse.draw_idle()
-
-    #     self._render_lsr_nmse(self._cached_full_lsr, sparse_lsr)
-
     def _render_sparse_lsr_only(self):
         """Render LSR reconstruction (sparse) in main window"""
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
@@ -407,7 +377,7 @@ class SimulatorCTLabApp(QMainWindow):
             self._cached_sparse_sino,
             self._cached_sparse_angles,
             iterations=self.iterations,
-            damping_factor=0.5,
+            damping_factor=0.03,
             verbose=False
         )
 
@@ -417,7 +387,7 @@ class SimulatorCTLabApp(QMainWindow):
                 self._cached_full_sino,
                 self._cached_full_angles,
                 iterations=self.iterations,
-                damping_factor=0.5,
+                damping_factor=0.03,
                 verbose=False
             )
 
@@ -568,24 +538,55 @@ class SimulatorCTLabApp(QMainWindow):
             self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
 
     def _apply_step_angle_from_main(self):
+        """Step angle slider changed in main window - sync to all dialogs"""
         self.step_angle = self.step_angle_slider.value()
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace()
+        self._sync_step_angle_to_all_dialogs()
 
     def _apply_iterations_from_main(self):
-        """Handle iterations slider release - update LSR in main window"""
+        """Iterations slider changed in main window - update LSR and sync to all dialogs"""
         self.iterations = self.iter_slider.value()
         self.iter_label.setText(str(self.iterations))
         # Refresh LSR display only (fast operation)
         self._render_sparse_lsr_only()
+        self._sync_iterations_to_all_dialogs()
+
+    def _sync_step_angle_to_all_dialogs(self):
+        """Synchronize step_angle value to all open dialogs"""
+        if hasattr(self, "spectrum_dialog") and self.spectrum_dialog is not None:
+            self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
+        
+        if hasattr(self, "fbp_dialog") and self.fbp_dialog is not None:
+            self.fbp_dialog.sync_step_angle_from_main(self.step_angle)
+        
+        if hasattr(self, "lsr_dialog") and self.lsr_dialog is not None:
+            self.lsr_dialog.sync_step_angle_from_main(self.step_angle)
+
+    def _sync_iterations_to_all_dialogs(self):
+        """Synchronize iterations value to all open dialogs"""
+        if hasattr(self, "lsr_dialog") and self.lsr_dialog is not None:
+            self.lsr_dialog.sync_iterations_from_main(self.iterations)
 
     def sync_step_angle_from_dialog(self, step_angle):
+        """Called when step_angle changes in a dialog - sync back to main"""
         self.step_angle = int(step_angle)
         self.step_angle_slider.blockSignals(True)
         self.step_angle_slider.setValue(self.step_angle)
         self.step_angle_slider.blockSignals(False)
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace(sync_dialog=False)
+        self._sync_step_angle_to_all_dialogs()
+
+    def sync_iterations_from_dialog(self, iterations):
+        """Called when iterations changes in a dialog - sync back to main"""
+        self.iterations = int(iterations)
+        self.iter_slider.blockSignals(True)
+        self.iter_slider.setValue(self.iterations)
+        self.iter_slider.blockSignals(False)
+        self.iter_label.setText(str(self.iterations))
+        self._render_sparse_lsr_only()
+        self._sync_iterations_to_all_dialogs()
 
     def show_spectrum_workspace(self):
         if getattr(self, "spectrum_dialog", None) is None:

@@ -230,6 +230,9 @@ class LSRMetricDialog(QDialog):
         self.step_angle = self.step_slider.value()
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
+        # Sync back to parent
+        if self.parent() and hasattr(self.parent(), 'sync_step_angle_from_dialog'):
+            self.parent().sync_step_angle_from_dialog(self.step_angle)
 
     def _recompute_from_iterations(self):
         """
@@ -249,7 +252,31 @@ class LSRMetricDialog(QDialog):
         
         # Render everything
         self._render_all()
+        
+        # Sync back to parent
+        if self.parent() and hasattr(self.parent(), 'sync_iterations_from_dialog'):
+            self.parent().sync_iterations_from_dialog(self.iterations)
 
+    def sync_step_angle_from_main(self, step_angle):
+        """Sync step_angle from main window to this dialog"""
+        self.step_angle = int(step_angle)
+        self.step_slider.blockSignals(True)
+        self.step_slider.setValue(self.step_angle)
+        self.step_slider.blockSignals(False)
+        self.step_label.setText(f"{self.step_angle}°")
+        self._recompute_and_render()
+
+    def sync_iterations_from_main(self, iterations):
+        """Sync iterations from main window to this dialog"""
+        self.iterations = int(iterations)
+        self.iter_slider.blockSignals(True)
+        self.iter_slider.setValue(self.iterations)
+        self.iter_slider.blockSignals(False)
+        self.iter_label.setText(str(self.iterations))
+        self._recompute_sparse_reconstruction()
+        self._recompute_metrics()
+        self._render_all()
+        
     def _recompute_and_render(self):
         """
         Full recomputation: regenerate sinograms + reconstruct both + render.
