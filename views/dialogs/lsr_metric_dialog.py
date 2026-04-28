@@ -113,22 +113,54 @@ class LSRMetricDialog(QDialog):
         # =================================================
         # CONTROLS (Step Angle)
         # =================================================
+        # =================================================
+        # CONTROLS (Step Angle)
+        # =================================================
         controls_row = QHBoxLayout()
         layout.addLayout(controls_row)
 
-        controls_row.addWidget(QLabel("Sampling Step Angle:"))
+        controls_row.addWidget(QLabel("Step Angle:"))
+
         self.step_slider = QSlider(Qt.Orientation.Horizontal)
         self.step_slider.setRange(1, 10)
         self.step_slider.setValue(self.step_angle)
         self.step_slider.setSingleStep(1)
         self.step_slider.setPageStep(1)
+
         self.step_label = QLabel(f"{self.step_angle}°")
-        
-        self.step_slider.valueChanged.connect(lambda v: self.step_label.setText(f"{v}°"))
+
+        self.step_slider.valueChanged.connect(
+            lambda v: self.step_label.setText(f"{v}°")
+        )
         self.step_slider.sliderReleased.connect(self._recompute_from_step)
 
         controls_row.addWidget(self.step_slider)
         controls_row.addWidget(self.step_label)
+
+
+        # =================================================
+        # CONTROLS (Iterations) - NEW SLIDER BELOW
+        # =================================================
+        iterations_row = QHBoxLayout()
+        layout.addLayout(iterations_row)
+
+        iterations_row.addWidget(QLabel("Iterations:"))
+
+        self.iter_slider = QSlider(Qt.Orientation.Horizontal)
+        self.iter_slider.setRange(1, 100)   # Adjust max as needed
+        self.iter_slider.setValue(10)       # Default value
+        self.iter_slider.setSingleStep(1)
+        self.iter_slider.setPageStep(5)
+
+        self.iter_label = QLabel("10")
+
+        # Only updates label, no reconstruction function connected
+        self.iter_slider.valueChanged.connect(
+            lambda v: self.iter_label.setText(f"{v}")
+        )
+
+        iterations_row.addWidget(self.iter_slider)
+        iterations_row.addWidget(self.iter_label)
 
         if self.original is not None and self.total_i0 is not None:
             self._recompute_sinograms()
