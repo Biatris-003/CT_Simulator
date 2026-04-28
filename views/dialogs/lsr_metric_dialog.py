@@ -321,17 +321,35 @@ class LSRMetricDialog(QDialog):
             )
             self.error_map = metrics['emap']
 
+    # def _recompute_sparse_reconstruction(self):
+    #     """
+    #     Recompute SPARSE reconstruction ONLY (fast, no sinogram generation).
+        
+    #     Called when iterations slider changes.
+    #     """
+    #     if self.sparse_sino is None:
+    #         return
+
+    #     # Only recompute sparse SIRT
+    #     self.sparse_recon = IterativeReconstruction.sirt_reconstruction_fast(
+    #         self.sparse_sino,
+    #         self.sparse_angles,
+    #         iterations=self.iterations,
+    #         damping_factor=self.damping_factor,
+    #         verbose=False
+    #     )
+
     def _recompute_sparse_reconstruction(self):
         """
-        Recompute SPARSE reconstruction ONLY (fast, no sinogram generation).
+        Recompute SPARSE reconstruction ONLY (using proper SIRT).
         
         Called when iterations slider changes.
         """
         if self.sparse_sino is None:
             return
 
-        # Only recompute sparse SIRT
-        self.sparse_recon = IterativeReconstruction.sirt_reconstruction_fast(
+        # Recompute sparse SIRT with proper iterative loop
+        self.sparse_recon = IterativeReconstruction.sirt_reconstruction(
             self.sparse_sino,
             self.sparse_angles,
             iterations=self.iterations,

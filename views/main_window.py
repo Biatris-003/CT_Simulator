@@ -363,13 +363,47 @@ class SimulatorCTLabApp(QMainWindow):
 
         self._render_fbp_nmse(full_fbp, sparse_fbp)
 
+    # def _render_sparse_lsr_only(self):
+    #     """Render LSR reconstruction (sparse) in main window"""
+    #     if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
+    #         return
+
+    #     # Compute sparse LSR with current iterations
+    #     sparse_lsr = IterativeReconstruction.sirt_reconstruction_fast(
+    #         self._cached_sparse_sino,
+    #         self._cached_sparse_angles,
+    #         iterations=self.iterations,
+    #         damping_factor=0.5,
+    #         verbose=False
+    #     )
+
+    #     # Compute full LSR for reference (cache it)
+    #     if self._cached_full_lsr is None:
+    #         self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction_fast(
+    #             self._cached_full_sino,
+    #             self._cached_full_angles,
+    #             iterations=self.iterations,
+    #             damping_factor=0.5,
+    #             verbose=False
+    #         )
+
+    #     self.ax_lsr_sparse.clear()
+    #     self.ax_lsr_sparse.set_facecolor("black")
+    #     self.ax_lsr_sparse.imshow(sparse_lsr, cmap="gray")
+    #     self.ax_lsr_sparse.set_title(f"Sparse LSR @ mA: {self.mA}, kVp: {self.kVp}, iter: {self.iterations}", 
+    #                                  color="white")
+    #     self.ax_lsr_sparse.axis("off")
+    #     self.canvas_lsr_sparse.draw_idle()
+
+    #     self._render_lsr_nmse(self._cached_full_lsr, sparse_lsr)
+
     def _render_sparse_lsr_only(self):
         """Render LSR reconstruction (sparse) in main window"""
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
             return
 
-        # Compute sparse LSR with current iterations
-        sparse_lsr = IterativeReconstruction.sirt_reconstruction_fast(
+        # Compute sparse LSR with current iterations using PROPER SIRT
+        sparse_lsr = IterativeReconstruction.sirt_reconstruction(
             self._cached_sparse_sino,
             self._cached_sparse_angles,
             iterations=self.iterations,
@@ -379,7 +413,7 @@ class SimulatorCTLabApp(QMainWindow):
 
         # Compute full LSR for reference (cache it)
         if self._cached_full_lsr is None:
-            self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction_fast(
+            self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction(
                 self._cached_full_sino,
                 self._cached_full_angles,
                 iterations=self.iterations,
