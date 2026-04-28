@@ -275,7 +275,7 @@ class FBPMetricDialog(QDialog):
             self.ax_full.clear()
             self.ax_full.set_facecolor("black")
             self.ax_full.imshow(self.full_recon, cmap="gray")
-            self.ax_full.set_title("Full FBP", color="white")
+            # self.ax_full.set_title("Full FBP", color="white")
             self.ax_full.axis("off")
             self.fig_full.subplots_adjust(left=0, right=1, top=1, bottom=0)
             
@@ -285,7 +285,7 @@ class FBPMetricDialog(QDialog):
             self.ax_sparse.clear()
             self.ax_sparse.set_facecolor("black")
             self.ax_sparse.imshow(self.sparse_recon, cmap="gray")
-            self.ax_sparse.set_title("Sparse FBP", color="white")
+            # self.ax_sparse.set_title("Sparse FBP", color="white")
             self.ax_sparse.axis("off")
             self.fig_sparse.subplots_adjust(left=0, right=1, top=1, bottom=0)
             self.canvas_sparse.draw_idle()

@@ -210,7 +210,7 @@ class SpectrumWorkspaceDialog(QDialog):
 
             # الشكل العام
             self.ax_spectrum.tick_params(axis='both', colors="white", labelsize=8)
-            self.ax_spectrum.set_title("X-Ray Spectrum", color="white", fontsize=10)
+            # self.ax_spectrum.set_title("X-Ray Spectrum", color="white", fontsize=10)
             self.ax_spectrum.set_xlabel("Photon energy (keV)", color="white", fontsize=9)
             self.ax_spectrum.set_ylabel("Fluence/mm²/mAs", color="white", fontsize=9)
             self.ax_spectrum.grid(True, color='gray', linestyle='--', alpha=0.3)
@@ -275,9 +275,9 @@ class SpectrumWorkspaceDialog(QDialog):
 
         image = self.ax_mu.imshow(mu_map, cmap="hot", vmin=0, vmax=1.2)
 
-        contrast_text = "High Contrast" if kvp < 100 else "Low Contrast"
-        self.ax_mu.set_title(contrast_text, color="white", fontsize=10)
-        self.ax_mu.axis("off")
+        # contrast_text = "High Contrast" if kvp < 100 else "Low Contrast"
+        # self.ax_mu.set_title(contrast_text, color="white", fontsize=10)
+        # self.ax_mu.axis("off")
 
         # إدارة الـ Colorbar لضمان عدم التكرار أو تدمير التوسيط
         if not hasattr(self, "mu_colorbar") or self.mu_colorbar is None:

@@ -64,6 +64,7 @@ from models.reconstruction import SparseReconstruction, ComparisonReconstruction
 from views import style
 from views.dialogs.spectrum_workspace_dialog import SpectrumWorkspaceDialog
 from views.dialogs.fbp_metric_dialog import FBPMetricDialog
+from views.dialogs.lsr_metric_dialog import LSRMetricDialog
 
 from matplotlib.colors import ListedColormap
 
@@ -200,10 +201,10 @@ class SimulatorCTLabApp(QMainWindow):
         self.btn_compare_fbp.clicked.connect(self.show_fbp_metric_dialog)
         controls_layout.addWidget(self.btn_compare_fbp)
 
-        # ---------- LSM Metric ----------
-        self.btn_compare_lsm = QPushButton("Compare LSM Metric")
-        # self.btn_compare_lsm.clicked.connect(...)
-        controls_layout.addWidget(self.btn_compare_lsm)
+        # ---------- LSR Metric ----------
+        self.btn_compare_lsr = QPushButton("Compare LSR Metric")
+        self.btn_compare_lsr.clicked.connect(self.show_lsr_metric_dialog)
+        controls_layout.addWidget(self.btn_compare_lsr)
 
         # ---------- FBP vs LSM ----------
         self.btn_compare_fbp_lsm = QPushButton("Compare FBP vs LSM Metric")
@@ -364,7 +365,7 @@ class SimulatorCTLabApp(QMainWindow):
         self.ax_fbp_full.clear()
         self.ax_fbp_full.set_facecolor("black")
         self.ax_fbp_full.imshow(sparse_fbp, cmap="gray")
-        # self.ax_fbp_full.set_title(f"Sparse FBP ({self.step_angle}°)", color="white")
+        self.ax_fbp_full.set_title(f"Sparse FBP @ mA: {self.mA} , Kvp: {self.kVp}", color="white")
         self.ax_fbp_full.axis("off")
         self.canvas_fbp_full.draw_idle()
 
@@ -396,7 +397,7 @@ class SimulatorCTLabApp(QMainWindow):
             vmax = 1.0
 
         im = self.ax_fbp_nmse.imshow(error_map, cmap="hot", vmin=0.0, vmax=vmax)
-        self.ax_fbp_nmse.set_title("NMSE: FBP vs Dense", color="white")
+        # self.ax_fbp_nmse.set_title("NMSE: FBP vs Dense", color="white")
         self.ax_fbp_nmse.axis("off")
 
         self.ax_fbp_nmse.text(
@@ -519,6 +520,28 @@ class SimulatorCTLabApp(QMainWindow):
         self.fbp_dialog.show()
         self.fbp_dialog.raise_()
         self.fbp_dialog.activateWindow()
+
+    def show_lsr_metric_dialog(self):
+        if self._cached_full_sino is None or self._cached_sparse_sino is None:
+            self._refresh_workspace(sync_dialog=False)
+
+        _, mu_map = build_three_material_mu_map(
+            size=self.material_phantom.shape[0],
+            kvp=self.kVp,
+        )
+
+        self.lsr_dialog = LSRMetricDialog(
+            self,
+            original=mu_map,
+            total_i0=self._cached_total_i0,
+            step_angle=self.step_angle,
+            full_sino=self._cached_full_sino,
+            sparse_sino=self._cached_sparse_sino,
+        )
+
+        self.lsr_dialog.show()
+        self.lsr_dialog.raise_()
+        self.lsr_dialog.activateWindow()
 
     def chosen_spectrum(self, q, energies, kvp, ma, cu, al):
         self.preview_spectrum(q, energies, kvp, ma, cu, al)
