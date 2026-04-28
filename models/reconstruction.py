@@ -80,6 +80,51 @@ class SparseReconstruction:
         """
         reconstructed = iradon(sinogram, theta=angles, filter_name=filter_name)
         return reconstructed
+
+    @staticmethod
+    def lsr_reconstruction(sinogram, angles, iterations=10):
+        """
+        Reconstruct image using Iterative Least Squares Reconstruction (Landweber iteration).
+
+        Minimises ||Ax - b||^2 via gradient descent where A is the Radon transform,
+        x is the unknown image and b is the sinogram.
+
+        Update rule (Landweber iteration):
+            x_{k+1} = x_k + omega * A^T * (b - A * x_k)
+        where omega = pi / (2 * n_angles) is the step size.
+
+        Args:
+            sinogram (np.ndarray): Projection data (shape: [n_detectors, n_angles])
+            angles (np.ndarray): Projection angles in degrees
+            iterations (int): Number of iterations
+
+        Returns:
+            np.ndarray: Reconstructed image
+        """
+        n_angles = len(angles)
+        omega = np.pi / (2.0 * n_angles) if n_angles > 0 else 1.0
+
+        # Initial estimate: normalised unfiltered backprojection
+        x = iradon(sinogram, theta=angles, filter_name=None) * omega
+
+        for _ in range(iterations):
+            # Forward projection of current estimate
+            sino_est = radon(x, theta=angles, circle=False)
+
+            # Align row counts (radon / iradon may differ by 1 due to rounding)
+            n_rows = min(sino_est.shape[0], sinogram.shape[0])
+            residual = sinogram[:n_rows] - sino_est[:n_rows]
+
+            # Pad residual back to sino_est row count so iradon is consistent
+            if n_rows < sino_est.shape[0]:
+                pad_rows = sino_est.shape[0] - n_rows
+                residual = np.pad(residual, ((0, pad_rows), (0, 0)))
+
+            # Backproject residual (A^T) and apply step
+            correction = iradon(residual, theta=angles, filter_name=None)
+            x = x + omega * correction
+
+        return x
     
     @staticmethod
     def apply_high_pass_filter(image, kernel_size=5, strength=1.0):
@@ -220,6 +265,41 @@ class SparseReconstruction:
 
 class ComparisonReconstruction:
     """Compare sparse vs dense reconstruction"""
+
+    @staticmethod
+    def reconstruct_lsr_from_sinograms(full_sinogram, sparse_sinogram, full_angles, sparse_angles, original=None, iterations=10):
+        """Reconstruct full and sparse LSR images from supplied sinograms.
+
+        Args:
+            full_sinogram (np.ndarray): Dense/full sinogram
+            sparse_sinogram (np.ndarray): Sparse sinogram
+            full_angles (np.ndarray): Projection angles for the full sinogram
+            sparse_angles (np.ndarray): Projection angles for the sparse sinogram
+            original (np.ndarray | None): Optional reference image for NMSE/PSNR
+            iterations (int): Number of Landweber iterations
+
+        Returns:
+            dict: full/sparse reconstructions, angles, and optional NMSE/PSNR metrics
+        """
+        full_recon = SparseReconstruction.lsr_reconstruction(full_sinogram, full_angles, iterations=iterations)
+        sparse_recon = SparseReconstruction.lsr_reconstruction(sparse_sinogram, sparse_angles, iterations=iterations)
+
+        result = {
+            'full_recon': full_recon,
+            'sparse_recon': sparse_recon,
+            'full_angles': full_angles,
+            'sparse_angles': sparse_angles,
+        }
+
+        if original is not None:
+            full_err = ComparisonReconstruction.compute_reconstruction_error(original, full_recon)
+            sparse_err = ComparisonReconstruction.compute_reconstruction_error(original, sparse_recon)
+            result['full_nmse'] = full_err['nmse']
+            result['sparse_nmse'] = sparse_err['nmse']
+            result['full_psnr'] = full_err['psnr']
+            result['sparse_psnr'] = sparse_err['psnr']
+
+        return result
 
     @staticmethod
     def reconstruct_fbp_from_sinograms(full_sinogram, sparse_sinogram, full_angles, sparse_angles, original=None, filter_name='ramp'):
