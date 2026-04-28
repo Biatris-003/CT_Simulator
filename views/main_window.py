@@ -251,6 +251,7 @@ class SimulatorCTLabApp(QMainWindow):
         self.iter_slider.valueChanged.connect(
             lambda v: self.iter_label.setText(str(v))
         )
+        self.iter_slider.sliderReleased.connect(self._apply_iterations_from_main)
 
         iter_row.addWidget(self.iter_slider)
         iter_row.addWidget(self.iter_label)
@@ -369,12 +370,33 @@ class SimulatorCTLabApp(QMainWindow):
         self.ax_fbp_full.axis("off")
         self.canvas_fbp_full.draw_idle()
 
+        # --- LSR reconstruction ---
+        iterations = self.iter_slider.value()
+        sparse_lsr = SparseReconstruction.lsr_reconstruction(
+            self._cached_sparse_sino,
+            self._cached_sparse_angles,
+            iterations=iterations,
+        )
+
+        full_lsr = None
+        if self._cached_full_sino is not None and self._cached_full_angles is not None:
+            full_lsr = SparseReconstruction.lsr_reconstruction(
+                self._cached_full_sino,
+                self._cached_full_angles,
+                iterations=iterations,
+            )
+
         self.ax_fbp_sparse.clear()
         self.ax_fbp_sparse.set_facecolor("black")
+        self.ax_fbp_sparse.imshow(sparse_lsr, cmap="gray")
+        self.ax_fbp_sparse.set_title(
+            f"Sparse LSR @ iter: {iterations}", color="white"
+        )
         self.ax_fbp_sparse.axis("off")
         self.canvas_fbp_sparse.draw_idle()
 
         self._render_fbp_nmse(full_fbp, sparse_fbp)
+        self._render_lsr_nmse(full_lsr, sparse_lsr)
 
     def _render_fbp_nmse(self, full_fbp, sparse_fbp):
         self.ax_fbp_nmse.clear()
@@ -430,6 +452,59 @@ class SimulatorCTLabApp(QMainWindow):
         self.cbar_fbp_nmse = self.fig_fbp_nmse.colorbar(im, cax=cax)
         self.canvas_fbp_nmse.draw_idle()
 
+    def _render_lsr_nmse(self, full_lsr, sparse_lsr):
+        self.ax_lsr_nmse.clear()
+        self.ax_lsr_nmse.set_facecolor("black")
+
+        if full_lsr is None or sparse_lsr is None:
+            self.ax_lsr_nmse.text(0.5, 0.5, "NMSE unavailable", color="white",
+                                  ha="center", va="center", transform=self.ax_lsr_nmse.transAxes)
+            self.ax_lsr_nmse.axis("off")
+            self.canvas_lsr_nmse.draw_idle()
+            return
+
+        metrics = ComparisonReconstruction.compute_reconstruction_error(full_lsr, sparse_lsr)
+        error_map = metrics["emap"]
+        nmse = metrics["nmse"]
+        psnr = metrics["psnr"]
+
+        vmax = float(np.max(error_map))
+        if vmax <= 0.0:
+            vmax = 1.0
+
+        im = self.ax_lsr_nmse.imshow(error_map, cmap="hot", vmin=0.0, vmax=vmax)
+        self.ax_lsr_nmse.axis("off")
+
+        self.ax_lsr_nmse.text(
+            0.5,
+            -0.12,
+            f"NMSE: {nmse:.4f}\nPSNR: {psnr:.2f} dB",
+            color="#FF4800",
+            fontsize=10,
+            ha="center",
+            va="top",
+            transform=self.ax_lsr_nmse.transAxes,
+            bbox=dict(facecolor='black', alpha=0.6, edgecolor='#555555')
+        )
+
+        if hasattr(self, 'cbar_lsr_nmse'):
+            try:
+                self.cbar_lsr_nmse.remove()
+            except Exception:
+                pass
+            try:
+                if hasattr(self, 'cbar_lsr_nmse_ax'):
+                    self.cbar_lsr_nmse_ax.remove()
+                    delattr(self, 'cbar_lsr_nmse_ax')
+            except Exception:
+                pass
+
+        divider = make_axes_locatable(self.ax_lsr_nmse)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        self.cbar_lsr_nmse_ax = cax
+        self.cbar_lsr_nmse = self.fig_lsr_nmse.colorbar(im, cax=cax)
+        self.canvas_lsr_nmse.draw_idle()
+
     def _refresh_workspace(self, *args, sync_dialog=True):
         if self.material_phantom is None:
             return
@@ -461,6 +536,11 @@ class SimulatorCTLabApp(QMainWindow):
         self.step_angle = self.step_angle_slider.value()
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace()
+
+    def _apply_iterations_from_main(self):
+        self.iterations = self.iter_slider.value()
+        self.iter_label.setText(str(self.iterations))
+        self._render_sparse_fbp_only()
 
     def sync_step_angle_from_dialog(self, step_angle):
         self.step_angle = int(step_angle)
