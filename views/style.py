@@ -65,11 +65,22 @@ QGroupBox::title {
     color: #8BE9FD;
     background-color: transparent;
 }
-
 /* Sliders */
 QSlider::groove:horizontal {
     border: 1px solid #6272A4;
     height: 6px;
+    background: #282A36;
+    border-radius: 3px;
+}
+
+/* الجزء اللي قبل الـ handle (filled part) */
+QSlider::sub-page:horizontal {
+    background: #8BE9FD;
+    border-radius: 3px;
+}
+
+/* الجزء اللي بعد الـ handle */
+QSlider::add-page:horizontal {
     background: #282A36;
     border-radius: 3px;
 }

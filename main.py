@@ -5,6 +5,9 @@ Main application launcher for the CT Simulator using MVC architecture.
 """
 
 import sys
+import os
+# Ensure project package path is on sys.path so imports like `views.*` work
+sys.path.insert(0, os.path.dirname(__file__))
 from PyQt5.QtWidgets import QApplication
 from views.main_window import SimulatorCTLabApp
 
