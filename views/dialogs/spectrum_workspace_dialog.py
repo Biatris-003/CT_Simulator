@@ -88,7 +88,8 @@ class SpectrumWorkspaceDialog(QDialog):
         self.kv_slider.setRange(40, 140)
         self.kv_slider.setValue(self.kVp)
         self.kv_value_label = QLabel(str(self.kVp))
-        self.kv_slider.sliderReleased.connect(self._refresh_workspace)
+        # Only connect to sliderReleased for efficiency
+        self.kv_slider.sliderReleased.connect(self._on_kv_slider_released)
 
         kv_row.addWidget(self.kv_slider)
         kv_row.addWidget(self.kv_value_label)
@@ -101,9 +102,10 @@ class SpectrumWorkspaceDialog(QDialog):
         self.ma_slider.setRange(1, 10)
         self.ma_slider.setValue(self.mA)
         self.ma_value_label = QLabel(str(self.mA))
-        self.ma_slider.setSingleStep(1)   # 👈 step = 1
-        self.ma_slider.setPageStep(1)     # 👈 optional (for keyboard/page keys)
-        self.ma_slider.sliderReleased.connect(self._refresh_workspace)
+        self.ma_slider.setSingleStep(1)
+        self.ma_slider.setPageStep(1)
+        # Only connect to sliderReleased for efficiency
+        self.ma_slider.sliderReleased.connect(self._on_ma_slider_released)
 
         ma_row.addWidget(self.ma_slider)
         ma_row.addWidget(self.ma_value_label)
@@ -118,10 +120,12 @@ class SpectrumWorkspaceDialog(QDialog):
         self.step_slider.setSingleStep(1)
         self.step_slider.setPageStep(1)
         self.step_value_label = QLabel(str(self.step_angle))
+        # Connect valueChanged ONLY for label update (no heavy computation)
         self.step_slider.valueChanged.connect(
             lambda v: self.step_value_label.setText(str(v))
         )
-        self.step_slider.sliderReleased.connect(self._apply_step_angle_from_dialog)
+        # Only connect to sliderReleased for actual recomputation
+        self.step_slider.sliderReleased.connect(self._on_step_slider_released)
         step_row.addWidget(self.step_slider)
         step_row.addWidget(self.step_value_label)
         controls_layout.addLayout(step_row)
@@ -160,6 +164,42 @@ class SpectrumWorkspaceDialog(QDialog):
         # initial render
         self._refresh_workspace()
 
+    def _on_kv_slider_released(self):
+        """kV slider released"""
+        new_kv = self.kv_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_kv == self.kVp:
+            return
+        
+        self.kVp = new_kv
+        self.kv_value_label.setText(str(self.kVp))
+        self._refresh_workspace()
+
+    def _on_ma_slider_released(self):
+        """mA slider released"""
+        new_ma = self.ma_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_ma == self.mA:
+            return
+        
+        self.mA = new_ma
+        self.ma_value_label.setText(str(self.mA))
+        self._refresh_workspace()
+
+    def _on_step_slider_released(self):
+        """Step angle slider released"""
+        new_step_angle = self.step_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
+        self.step_value_label.setText(str(self.step_angle))
+        self._refresh_workspace()
+
     def _generate_spectrum_data(self, kVp, mA, Cu=0.0, Al=0.0):
         kVp = int(kVp)
         mA = int(mA)
@@ -192,8 +232,6 @@ class SpectrumWorkspaceDialog(QDialog):
         final_intensities = base_spectrum * np.exp(-att_added)
         final_intensities = final_intensities * mA * 6.5e4
         return energies, final_intensities
-    
-
     
     def _render_spectrum(self, energies, intensities):
             self.ax_spectrum.clear()
@@ -371,14 +409,15 @@ class SpectrumWorkspaceDialog(QDialog):
         # print(f"{timestamp} Spectrum workspace updated: {self.kVp} kVp, {self.mA} mA")
 
     def sync_step_angle_from_main(self, step_angle):
-        self.step_angle = int(step_angle)
+        new_step_angle = int(step_angle)
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_slider.blockSignals(True)
         self.step_slider.setValue(self.step_angle)
         self.step_slider.blockSignals(False)
         self.step_value_label.setText(str(self.step_angle))
         self._refresh_workspace(notify_parent=False)
-
-    def _apply_step_angle_from_dialog(self):
-        self.step_angle = self.step_slider.value()
-        self.step_value_label.setText(str(self.step_angle))
-        self._refresh_workspace()

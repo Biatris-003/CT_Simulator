@@ -73,7 +73,7 @@ class LSRMetricDialog(QDialog):
         self.full_angles = full_angles
         self.sparse_angles = sparse_angles
         self.iterations = int(iterations)
-        self.damping_factor = 0.5  # Standard SIRT damping factor
+        self.damping_factor = 0.03  # Standard SIRT damping factor
         
         # Reconstructions and metrics
         self.full_recon = None
@@ -180,10 +180,8 @@ class LSRMetricDialog(QDialog):
 
         self.step_label = QLabel(f"{self.step_angle}°")
 
-        self.step_slider.valueChanged.connect(
-            lambda v: self.step_label.setText(f"{v}°")
-        )
-        self.step_slider.sliderReleased.connect(self._recompute_from_step)
+        # Only connect to sliderReleased for efficiency
+        self.step_slider.sliderReleased.connect(self._on_step_slider_released)
 
         controls_row1.addWidget(self.step_slider)
         controls_row1.addWidget(self.step_label)
@@ -202,10 +200,12 @@ class LSRMetricDialog(QDialog):
 
         self.iter_label = QLabel(str(self.iterations))
 
+        # Connect valueChanged ONLY for label update (no heavy computation)
         self.iter_slider.valueChanged.connect(
             lambda v: self.iter_label.setText(f"{v}")
         )
-        self.iter_slider.sliderReleased.connect(self._recompute_from_iterations)
+        # Only connect to sliderReleased for actual recomputation
+        self.iter_slider.sliderReleased.connect(self._on_iter_slider_released)
 
         iterations_row.addWidget(self.iter_slider)
         iterations_row.addWidget(self.iter_label)
@@ -218,30 +218,34 @@ class LSRMetricDialog(QDialog):
             self._render_all()
 
     # =====================================================
-    # RECOMPUTATION METHODS
+    # SLIDER HANDLERS (Called only when slider is released)
     # =====================================================
 
-    def _recompute_from_step(self):
-        """
-        Recompute everything when step_angle slider is released.
+    def _on_step_slider_released(self):
+        """Step angle slider released"""
+        new_step_angle = self.step_slider.value()
         
-        Regenerates sinograms (expensive) and both reconstructions.
-        """
-        self.step_angle = self.step_slider.value()
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
+        
         # Sync back to parent
         if self.parent() and hasattr(self.parent(), 'sync_step_angle_from_dialog'):
             self.parent().sync_step_angle_from_dialog(self.step_angle)
 
-    def _recompute_from_iterations(self):
-        """
-        Recompute SPARSE reconstruction ONLY when iterations slider is released.
+    def _on_iter_slider_released(self):
+        """Iterations slider released"""
+        new_iterations = self.iter_slider.value()
         
-        FAST: doesn't regenerate sinograms, only recomputes SPARSE SIRT iteration.
-        Full reconstruction remains unchanged.
-        """
-        self.iterations = self.iter_slider.value()
+        # Only proceed if value actually changed
+        if new_iterations == self.iterations:
+            return
+        
+        self.iterations = new_iterations
         self.iter_label.setText(str(self.iterations))
         
         # Only recompute SPARSE reconstruction with new iterations
@@ -257,9 +261,19 @@ class LSRMetricDialog(QDialog):
         if self.parent() and hasattr(self.parent(), 'sync_iterations_from_dialog'):
             self.parent().sync_iterations_from_dialog(self.iterations)
 
+    # =====================================================
+    # SYNC METHODS FROM MAIN WINDOW
+    # =====================================================
+
     def sync_step_angle_from_main(self, step_angle):
         """Sync step_angle from main window to this dialog"""
-        self.step_angle = int(step_angle)
+        new_step_angle = int(step_angle)
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_slider.blockSignals(True)
         self.step_slider.setValue(self.step_angle)
         self.step_slider.blockSignals(False)
@@ -268,7 +282,13 @@ class LSRMetricDialog(QDialog):
 
     def sync_iterations_from_main(self, iterations):
         """Sync iterations from main window to this dialog"""
-        self.iterations = int(iterations)
+        new_iterations = int(iterations)
+        
+        # Only proceed if value actually changed
+        if new_iterations == self.iterations:
+            return
+        
+        self.iterations = new_iterations
         self.iter_slider.blockSignals(True)
         self.iter_slider.setValue(self.iterations)
         self.iter_slider.blockSignals(False)
@@ -276,7 +296,11 @@ class LSRMetricDialog(QDialog):
         self._recompute_sparse_reconstruction()
         self._recompute_metrics()
         self._render_all()
-        
+
+    # =====================================================
+    # RECOMPUTATION METHODS
+    # =====================================================
+
     def _recompute_and_render(self):
         """
         Full recomputation: regenerate sinograms + reconstruct both + render.
@@ -347,24 +371,6 @@ class LSRMetricDialog(QDialog):
                 self.full_recon, self.sparse_recon
             )
             self.error_map = metrics['emap']
-
-    # def _recompute_sparse_reconstruction(self):
-    #     """
-    #     Recompute SPARSE reconstruction ONLY (fast, no sinogram generation).
-        
-    #     Called when iterations slider changes.
-    #     """
-    #     if self.sparse_sino is None:
-    #         return
-
-    #     # Only recompute sparse SIRT
-    #     self.sparse_recon = IterativeReconstruction.sirt_reconstruction_fast(
-    #         self.sparse_sino,
-    #         self.sparse_angles,
-    #         iterations=self.iterations,
-    #         damping_factor=self.damping_factor,
-    #         verbose=False
-    #     )
 
     def _recompute_sparse_reconstruction(self):
         """

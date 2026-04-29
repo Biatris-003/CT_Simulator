@@ -149,10 +149,8 @@ class FBPMetricDialog(QDialog):
 
         self.step_label = QLabel(f"{self.step_angle}°")
 
-        self.step_slider.valueChanged.connect(
-            lambda v: self.step_label.setText(f"{v}°")
-        )
-        self.step_slider.sliderReleased.connect(self._recompute_from_step)
+        # Only connect to sliderReleased for efficiency
+        self.step_slider.sliderReleased.connect(self._on_step_slider_released)
 
         controls_row.addWidget(self.step_slider)
         controls_row.addWidget(self.step_label)
@@ -205,24 +203,44 @@ class FBPMetricDialog(QDialog):
     def set_results(self, original, total_i0, step_angle=1):
         self.original = original
         self.total_i0 = total_i0
-        self.step_angle = int(step_angle)
+        new_step_angle = int(step_angle)
+        
+        # Only proceed if value changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_slider.blockSignals(True)
         self.step_slider.setValue(self.step_angle)
         self.step_slider.blockSignals(False)
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
 
-    def _recompute_from_step(self):
-        self.step_angle = self.step_slider.value()
+    def _on_step_slider_released(self):
+        """Step angle slider released"""
+        new_step_angle = self.step_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
+        
         # Sync back to parent
         if self.parent() and hasattr(self.parent(), 'sync_step_angle_from_dialog'):
             self.parent().sync_step_angle_from_dialog(self.step_angle)
 
     def sync_step_angle_from_main(self, step_angle):
         """Sync step_angle from main window to this dialog"""
-        self.step_angle = int(step_angle)
+        new_step_angle = int(step_angle)
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_slider.blockSignals(True)
         self.step_slider.setValue(self.step_angle)
         self.step_slider.blockSignals(False)

@@ -216,10 +216,8 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.step_angle_label = QLabel(f"{self.step_angle}°")
 
-        self.step_angle_slider.valueChanged.connect(
-            lambda v: self.step_angle_label.setText(f"{v}°")
-        )
-        self.step_angle_slider.sliderReleased.connect(self._apply_step_angle_from_main)
+        # Only connect to sliderReleased for efficiency
+        self.step_angle_slider.sliderReleased.connect(self._on_step_angle_changed)
 
         step_angle_row.addWidget(self.step_angle_slider)
         step_angle_row.addWidget(self.step_angle_label)
@@ -240,10 +238,12 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.iter_label = QLabel(str(self.iterations))
 
+        # Connect valueChanged ONLY for label update (no heavy computation)
         self.iter_slider.valueChanged.connect(
             lambda v: self.iter_label.setText(str(v))
         )
-        self.iter_slider.sliderReleased.connect(self._apply_iterations_from_main)
+        # Only connect to sliderReleased for actual recomputation
+        self.iter_slider.sliderReleased.connect(self._on_iterations_changed)
 
         iter_row.addWidget(self.iter_slider)
         iter_row.addWidget(self.iter_label)
@@ -537,18 +537,30 @@ class SimulatorCTLabApp(QMainWindow):
         if sync_dialog and getattr(self, "spectrum_dialog", None) is not None:
             self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
 
-    def _apply_step_angle_from_main(self):
-        """Step angle slider changed in main window - sync to all dialogs"""
-        self.step_angle = self.step_angle_slider.value()
+    def _on_step_angle_changed(self):
+        """Step angle slider released - update step angle and refresh"""
+        new_step_angle = self.step_angle_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_step_angle == self.step_angle:
+            return
+        
+        self.step_angle = new_step_angle
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace()
         self._sync_step_angle_to_all_dialogs()
 
-    def _apply_iterations_from_main(self):
-        """Iterations slider changed in main window - update LSR and sync to all dialogs"""
-        self.iterations = self.iter_slider.value()
+    def _on_iterations_changed(self):
+        """Iterations slider released - update iterations and refresh LSR"""
+        new_iterations = self.iter_slider.value()
+        
+        # Only proceed if value actually changed
+        if new_iterations == self.iterations:
+            return
+        
+        self.iterations = new_iterations
         self.iter_label.setText(str(self.iterations))
-        # Refresh LSR display only (fast operation)
+        # Only recompute LSR (fast operation, no sinogram regeneration)
         self._render_sparse_lsr_only()
         self._sync_iterations_to_all_dialogs()
 
