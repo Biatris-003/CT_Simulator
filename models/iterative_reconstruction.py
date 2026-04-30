@@ -34,14 +34,14 @@ class IterativeReconstruction:
 
     @staticmethod
     def sirt_reconstruction(sinogram, angles, iterations=10, damping_factor=0.03, 
-                           verbose=False):
+                           initial_guess=None, verbose=False):
         """
         SIRT (Simultaneous Iterative Reconstruction Technique) - Numerically Stable.
         
         Proper SIRT algorithm with stability improvements:
         
         1. Normalize sinogram
-        2. x_0 = FBP(sinogram)
+        2. x_0 = initial_guess or FBP(sinogram)
         3. For each iteration n:
            - Forward project: p_n = Radon(x_n)
            - Compute error: err = sinogram - p_n
@@ -55,6 +55,7 @@ class IterativeReconstruction:
             iterations (int): Number of iterations (1-100, default 10)
             damping_factor (float): Initial step size (0.01-0.1, default 0.03)
                 Smaller values = more stable but slower
+            initial_guess (np.ndarray, optional): Pre-computed initial FBP. If None, will compute it.
             verbose (bool): Print convergence info per iteration
             
         Returns:
@@ -84,12 +85,17 @@ class IterativeReconstruction:
             print(f"{'='*70}")
         
         # =====================================================
-        # REQUIREMENT 8: Initialize with FBP
+        # REQUIREMENT 8: Initialize with FBP or use provided initial guess
         # =====================================================
-        x = IterativeReconstruction.fbp_reconstruction(
-            sinogram_normalized, angles, filter_name='ramp'
-        )
-        x = x.astype(np.float32)
+        if initial_guess is not None:
+            x = initial_guess.astype(np.float32)
+            if verbose:
+                print(f"\nUsing provided initial guess")
+        else:
+            x = IterativeReconstruction.fbp_reconstruction(
+                sinogram_normalized, angles, filter_name='ramp'
+            )
+            x = x.astype(np.float32)
         
         # =====================================================
         # REQUIREMENT 3: Clip initial FBP to physical range
@@ -97,7 +103,7 @@ class IterativeReconstruction:
         x = np.clip(x, 0, None)
         
         if verbose:
-            print(f"\nFBP Initial Guess:")
+            print(f"\nInitial Guess:")
             print(f"  min={x.min():.6f}, max={x.max():.6f}, "
                   f"mean={x.mean():.6f}, std={x.std():.6f}")
         
@@ -190,7 +196,7 @@ class IterativeReconstruction:
         Returns:
             dict: Reconstruction results with NMSE/PSNR metrics
         """
-        # SIRT reconstruction on full sinogram
+        # Compute FBP initial guess for full sinogram (reuse for sparse)
         full_recon = IterativeReconstruction.sirt_reconstruction(
             full_sinogram, full_angles, 
             iterations=iterations, 
@@ -198,11 +204,20 @@ class IterativeReconstruction:
             verbose=False
         )
         
-        # SIRT reconstruction on sparse sinogram
+        # Compute initial FBP guess for sparse (to reuse in SIRT)
+        sino_max = np.max(np.abs(sparse_sinogram)) + 1e-8
+        sinogram_normalized = sparse_sinogram / sino_max
+        fbp_guess = IterativeReconstruction.fbp_reconstruction(
+            sinogram_normalized, sparse_angles, filter_name='ramp'
+        )
+        fbp_guess = np.clip(fbp_guess.astype(np.float32), 0, None)
+        
+        # SIRT reconstruction on sparse sinogram using pre-computed FBP guess
         sparse_recon = IterativeReconstruction.sirt_reconstruction(
             sparse_sinogram, sparse_angles, 
             iterations=iterations, 
             damping_factor=damping_factor,
+            initial_guess=fbp_guess,
             verbose=False
         )
         

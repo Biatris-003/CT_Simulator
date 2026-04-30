@@ -36,12 +36,6 @@ class LSRMetricDialog(QDialog):
         parent=None,
         original=None,
         total_i0=None,
-        step_angle=1,
-        full_sino=None,
-        sparse_sino=None,
-        full_angles=None,
-        sparse_angles=None,
-        iterations=10,
     ):
         """
         Initialize LSR Metric Dialog.
@@ -50,12 +44,6 @@ class LSRMetricDialog(QDialog):
             parent: Parent window
             original: Reference mu_map image
             total_i0: Total photon intensity
-            step_angle: Sparse projection angle step (1-10°)
-            full_sino: Full sinogram (360°, 1° steps)
-            sparse_sino: Sparse sinogram (variable angle)
-            full_angles: Full projection angles
-            sparse_angles: Sparse projection angles
-            iterations: Initial number of SIRT iterations (1-100, default 10)
         """
         super().__init__(parent)
         self.setWindowTitle("Compare LSR Metric (Iterative Least Squares)")
@@ -67,15 +55,17 @@ class LSRMetricDialog(QDialog):
         # Store data
         self.original = original
         self.total_i0 = total_i0
-        self.step_angle = int(step_angle)
-        self.full_sino = full_sino
-        self.sparse_sino = sparse_sino
-        self.full_angles = full_angles
-        self.sparse_angles = sparse_angles
-        self.iterations = int(iterations)
-        self.damping_factor = 0.03  # Standard SIRT damping factor
         
-        # Reconstructions and metrics
+        # Local state for this dialog only
+        self.step_angle = 1
+        self.iterations = 10
+        self.damping_factor = 0.03
+        
+        # Cached sinograms and reconstructions
+        self.full_sino = None
+        self.sparse_sino = None
+        self.full_angles = None
+        self.sparse_angles = None
         self.full_recon = None
         self.sparse_recon = None
         self.sparse_nmse = 0.0
@@ -186,7 +176,7 @@ class LSRMetricDialog(QDialog):
         controls_row1.addWidget(self.step_slider)
         controls_row1.addWidget(self.step_label)
 
-        # Row 2: Iterations Slider (affects SPARSE reconstruction only)
+        # Row 2: Iterations Slider
         iterations_row = QHBoxLayout()
         layout.addLayout(iterations_row)
 
@@ -222,7 +212,7 @@ class LSRMetricDialog(QDialog):
     # =====================================================
 
     def _on_step_slider_released(self):
-        """Step angle slider released"""
+        """Step angle slider released - affects THIS DIALOG ONLY"""
         new_step_angle = self.step_slider.value()
         
         # Only proceed if value actually changed
@@ -232,13 +222,9 @@ class LSRMetricDialog(QDialog):
         self.step_angle = new_step_angle
         self.step_label.setText(f"{self.step_angle}°")
         self._recompute_and_render()
-        
-        # Sync back to parent
-        if self.parent() and hasattr(self.parent(), 'sync_step_angle_from_dialog'):
-            self.parent().sync_step_angle_from_dialog(self.step_angle)
 
     def _on_iter_slider_released(self):
-        """Iterations slider released"""
+        """Iterations slider released - affects THIS DIALOG ONLY"""
         new_iterations = self.iter_slider.value()
         
         # Only proceed if value actually changed
@@ -255,46 +241,6 @@ class LSRMetricDialog(QDialog):
         self._recompute_metrics()
         
         # Render everything
-        self._render_all()
-        
-        # Sync back to parent
-        if self.parent() and hasattr(self.parent(), 'sync_iterations_from_dialog'):
-            self.parent().sync_iterations_from_dialog(self.iterations)
-
-    # =====================================================
-    # SYNC METHODS FROM MAIN WINDOW
-    # =====================================================
-
-    def sync_step_angle_from_main(self, step_angle):
-        """Sync step_angle from main window to this dialog"""
-        new_step_angle = int(step_angle)
-        
-        # Only proceed if value actually changed
-        if new_step_angle == self.step_angle:
-            return
-        
-        self.step_angle = new_step_angle
-        self.step_slider.blockSignals(True)
-        self.step_slider.setValue(self.step_angle)
-        self.step_slider.blockSignals(False)
-        self.step_label.setText(f"{self.step_angle}°")
-        self._recompute_and_render()
-
-    def sync_iterations_from_main(self, iterations):
-        """Sync iterations from main window to this dialog"""
-        new_iterations = int(iterations)
-        
-        # Only proceed if value actually changed
-        if new_iterations == self.iterations:
-            return
-        
-        self.iterations = new_iterations
-        self.iter_slider.blockSignals(True)
-        self.iter_slider.setValue(self.iterations)
-        self.iter_slider.blockSignals(False)
-        self.iter_label.setText(str(self.iterations))
-        self._recompute_sparse_reconstruction()
-        self._recompute_metrics()
         self._render_all()
 
     # =====================================================
@@ -323,8 +269,6 @@ class LSRMetricDialog(QDialog):
     def _recompute_sinograms(self):
         """
         Regenerate sinograms for current step_angle.
-        
-        Calls generate_physics_sinogram() to create full and sparse sinograms.
         """
         if self.original is None or self.total_i0 is None:
             return

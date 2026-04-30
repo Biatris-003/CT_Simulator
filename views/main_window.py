@@ -78,9 +78,10 @@ class SimulatorCTLabApp(QMainWindow):
         self._cached_full_angles = None
         self._cached_sparse_angles = None
         self._cached_step_angle = None
-        self._cached_sparse_lsr = None  # Cache for sparse LSR reconstruction
-        self._cached_full_lsr = None     # Cache for full LSR reconstruction
-        self._cached_lsr_iterations = None
+        self._cached_sparse_fbp = None
+        self._cached_full_fbp = None
+        self._cached_sparse_lsr = None
+        self._cached_full_lsr = None
 
         # ================= GLOBAL STATE =================
         self.kVp = 100
@@ -90,9 +91,6 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.step_angle = 1
         self.iterations = 10
-        
-        # Track all dialogs for synchronization
-        self.active_dialogs = []
 
         # ================= CENTRAL =================
         central_widget = QWidget()
@@ -138,7 +136,6 @@ class SimulatorCTLabApp(QMainWindow):
         self.canvas_fbp_nmse.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         workspace_grid.addWidget(fbp_nmse_group, 1, 0)
-
 
         # ---------- NMSE LSR vs Dense ----------
         lsr_nmse_group = QGroupBox("NMSE: LSR (Sparse vs Full)")
@@ -200,7 +197,6 @@ class SimulatorCTLabApp(QMainWindow):
 
         # ---------- FBP vs LSM ----------
         self.btn_compare_fbp_lsm = QPushButton("Compare FBP vs LSM Metric")
-        # self.btn_compare_fbp_lsm.clicked.connect(...)
         controls_layout.addWidget(self.btn_compare_fbp_lsm)
 
         # ---------- Step Angle ----------
@@ -223,7 +219,6 @@ class SimulatorCTLabApp(QMainWindow):
         step_angle_row.addWidget(self.step_angle_label)
 
         controls_layout.addLayout(step_angle_row)
-
 
         # ---------- Iterations ----------
         controls_layout.addWidget(QLabel("Iterations"))
@@ -299,7 +294,6 @@ class SimulatorCTLabApp(QMainWindow):
             vmax=2
         )
 
-        # self.ax_phantom.set_title("3-Material Phantom", color="white")
         self.ax_phantom.axis("off")
 
         colorbar = self.fig_phantom.colorbar(
@@ -335,7 +329,9 @@ class SimulatorCTLabApp(QMainWindow):
             self._cached_full_angles = full_angles
             self._cached_sparse_angles = sparse_angles
             self._cached_step_angle = self.step_angle
-            # Invalidate LSR cache when sinograms change
+            # Invalidate cached reconstructions when sinograms change
+            self._cached_sparse_fbp = None
+            self._cached_full_fbp = None
             self._cached_sparse_lsr = None
             self._cached_full_lsr = None
 
@@ -344,15 +340,16 @@ class SimulatorCTLabApp(QMainWindow):
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
             return
 
-        sparse_fbp = SparseReconstruction.fbp_reconstruction(
-            self._cached_sparse_sino,
-            self._cached_sparse_angles,
-            filter_name="ramp",
-        )
+        # Compute FBP reconstructions (cache if not already done)
+        if self._cached_sparse_fbp is None:
+            self._cached_sparse_fbp = SparseReconstruction.fbp_reconstruction(
+                self._cached_sparse_sino,
+                self._cached_sparse_angles,
+                filter_name="ramp",
+            )
 
-        full_fbp = None
-        if self._cached_full_sino is not None and self._cached_full_angles is not None:
-            full_fbp = SparseReconstruction.fbp_reconstruction(
+        if self._cached_full_fbp is None:
+            self._cached_full_fbp = SparseReconstruction.fbp_reconstruction(
                 self._cached_full_sino,
                 self._cached_full_angles,
                 filter_name="ramp",
@@ -360,12 +357,12 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.ax_fbp_full.clear()
         self.ax_fbp_full.set_facecolor("black")
-        self.ax_fbp_full.imshow(sparse_fbp, cmap="gray")
+        self.ax_fbp_full.imshow(self._cached_sparse_fbp, cmap="gray")
         self.ax_fbp_full.set_title(f"Sparse FBP @ mA: {self.mA}, kVp: {self.kVp}", color="white")
         self.ax_fbp_full.axis("off")
         self.canvas_fbp_full.draw_idle()
 
-        self._render_fbp_nmse(full_fbp, sparse_fbp)
+        self._render_fbp_nmse(self._cached_full_fbp, self._cached_sparse_fbp)
 
     def _render_sparse_lsr_only(self):
         """Render LSR reconstruction (sparse) in main window"""
@@ -509,7 +506,7 @@ class SimulatorCTLabApp(QMainWindow):
         self.cbar_lsr_nmse = self.fig_lsr_nmse.colorbar(im, cax=cax)
         self.canvas_lsr_nmse.draw_idle()
 
-    def _refresh_workspace(self, *args, sync_dialog=True):
+    def _refresh_workspace(self, *args):
         if self.material_phantom is None:
             return
 
@@ -534,11 +531,8 @@ class SimulatorCTLabApp(QMainWindow):
         self._render_sparse_fbp_only()
         self._render_sparse_lsr_only()
 
-        if sync_dialog and getattr(self, "spectrum_dialog", None) is not None:
-            self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
-
     def _on_step_angle_changed(self):
-        """Step angle slider released - update step angle and refresh"""
+        """Step angle slider released - update step angle and refresh MAIN WINDOW ONLY"""
         new_step_angle = self.step_angle_slider.value()
         
         # Only proceed if value actually changed
@@ -548,10 +542,9 @@ class SimulatorCTLabApp(QMainWindow):
         self.step_angle = new_step_angle
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace()
-        self._sync_step_angle_to_all_dialogs()
 
     def _on_iterations_changed(self):
-        """Iterations slider released - update iterations and refresh LSR"""
+        """Iterations slider released - update iterations and refresh LSR in MAIN WINDOW ONLY"""
         new_iterations = self.iter_slider.value()
         
         # Only proceed if value actually changed
@@ -562,99 +555,47 @@ class SimulatorCTLabApp(QMainWindow):
         self.iter_label.setText(str(self.iterations))
         # Only recompute LSR (fast operation, no sinogram regeneration)
         self._render_sparse_lsr_only()
-        self._sync_iterations_to_all_dialogs()
-
-    def _sync_step_angle_to_all_dialogs(self):
-        """Synchronize step_angle value to all open dialogs"""
-        if hasattr(self, "spectrum_dialog") and self.spectrum_dialog is not None:
-            self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
-        
-        if hasattr(self, "fbp_dialog") and self.fbp_dialog is not None:
-            self.fbp_dialog.sync_step_angle_from_main(self.step_angle)
-        
-        if hasattr(self, "lsr_dialog") and self.lsr_dialog is not None:
-            self.lsr_dialog.sync_step_angle_from_main(self.step_angle)
-
-    def _sync_iterations_to_all_dialogs(self):
-        """Synchronize iterations value to all open dialogs"""
-        if hasattr(self, "lsr_dialog") and self.lsr_dialog is not None:
-            self.lsr_dialog.sync_iterations_from_main(self.iterations)
-
-    def sync_step_angle_from_dialog(self, step_angle):
-        """Called when step_angle changes in a dialog - sync back to main"""
-        self.step_angle = int(step_angle)
-        self.step_angle_slider.blockSignals(True)
-        self.step_angle_slider.setValue(self.step_angle)
-        self.step_angle_slider.blockSignals(False)
-        self.step_angle_label.setText(f"{self.step_angle}°")
-        self._refresh_workspace(sync_dialog=False)
-        self._sync_step_angle_to_all_dialogs()
-
-    def sync_iterations_from_dialog(self, iterations):
-        """Called when iterations changes in a dialog - sync back to main"""
-        self.iterations = int(iterations)
-        self.iter_slider.blockSignals(True)
-        self.iter_slider.setValue(self.iterations)
-        self.iter_slider.blockSignals(False)
-        self.iter_label.setText(str(self.iterations))
-        self._render_sparse_lsr_only()
-        self._sync_iterations_to_all_dialogs()
 
     def show_spectrum_workspace(self):
         if getattr(self, "spectrum_dialog", None) is None:
             self.spectrum_dialog = SpectrumWorkspaceDialog(self, self.material_phantom)
 
-        # Keep the workspace step angle aligned with the main UI before showing it
-        self.spectrum_dialog.sync_step_angle_from_main(self.step_angle)
         self.spectrum_dialog.show()
         self.spectrum_dialog.raise_()
         self.spectrum_dialog.activateWindow()
 
     def preview_spectrum(self, q, energies, kvp, ma, cu, al):
+        """Called from spectrum workspace to update main window spectrum parameters"""
         self.q = q
         self.E0 = energies
         self.kVp = kvp
         self.mA = ma
         self.Cu = cu
         self.Al = al
-        self._refresh_workspace(sync_dialog=False)
+        self._refresh_workspace()
 
     def show_fbp_metric_dialog(self):
         if self._cached_full_sino is None or self._cached_sparse_sino is None:
-            self._refresh_workspace(sync_dialog=False)
+            self._refresh_workspace()
 
         _, mu_map = build_three_material_mu_map(
             size=self.material_phantom.shape[0],
             kvp=self.kVp,
         )
 
-        recon_results = ComparisonReconstruction.reconstruct_fbp_from_sinograms(
-            self._cached_full_sino,
-            self._cached_sparse_sino,
-            self._cached_full_angles,
-            self._cached_sparse_angles,
-            original=mu_map,
-            filter_name="ramp",
-        )
-
         self.fbp_dialog = FBPMetricDialog(
             self,
             original=mu_map,
             total_i0=self._cached_total_i0,
-            step_angle=self.step_angle,
-            full_recon=recon_results['full_recon'],
-            sparse_recon=recon_results['sparse_recon'],
-            full_nmse=recon_results.get('full_nmse'),
-            sparse_nmse=recon_results.get('sparse_nmse'),
         )
         self.fbp_dialog.show()
         self.fbp_dialog.raise_()
         self.fbp_dialog.activateWindow()
 
     def show_lsr_metric_dialog(self):
-        """Open LSR Metric Dialog with full and sparse sinograms"""
+        """Open LSR Metric Dialog"""
         if self._cached_full_sino is None or self._cached_sparse_sino is None:
-            self._refresh_workspace(sync_dialog=False)
+            self._refresh_workspace()
 
         _, mu_map = build_three_material_mu_map(
             size=self.material_phantom.shape[0],
@@ -665,12 +606,6 @@ class SimulatorCTLabApp(QMainWindow):
             self,
             original=mu_map,
             total_i0=self._cached_total_i0,
-            step_angle=self.step_angle,
-            full_sino=self._cached_full_sino,
-            sparse_sino=self._cached_sparse_sino,
-            full_angles=self._cached_full_angles,
-            sparse_angles=self._cached_sparse_angles,
-            iterations=self.iterations,
         )
 
         self.lsr_dialog.show()

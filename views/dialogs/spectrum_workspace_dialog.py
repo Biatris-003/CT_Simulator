@@ -77,7 +77,7 @@ class SpectrumWorkspaceDialog(QDialog):
         mu_layout.addWidget(self.canvas_mu)
         top_row.addWidget(mu_group, 1)
 
-        # Tube Settings (KEEP ONLY ONE)
+        # Tube Settings
         controls_group = QGroupBox("Tube Settings")
         controls_layout = QVBoxLayout(controls_group)
 
@@ -165,7 +165,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self._refresh_workspace()
 
     def _on_kv_slider_released(self):
-        """kV slider released"""
+        """kV slider released - affects BOTH spectrum workspace and main window"""
         new_kv = self.kv_slider.value()
         
         # Only proceed if value actually changed
@@ -177,7 +177,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self._refresh_workspace()
 
     def _on_ma_slider_released(self):
-        """mA slider released"""
+        """mA slider released - affects BOTH spectrum workspace and main window"""
         new_ma = self.ma_slider.value()
         
         # Only proceed if value actually changed
@@ -189,7 +189,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self._refresh_workspace()
 
     def _on_step_slider_released(self):
-        """Step angle slider released"""
+        """Step angle slider released - affects BOTH spectrum workspace and main window"""
         new_step_angle = self.step_slider.value()
         
         # Only proceed if value actually changed
@@ -237,18 +237,10 @@ class SpectrumWorkspaceDialog(QDialog):
             self.ax_spectrum.clear()
             self.ax_spectrum.set_facecolor("black")
 
-            # --- تعديل موضع وحجم الرسمة يدوياً ---
-            # [left, bottom, width, height] (بقيم تتراوح من 0 لـ 1)
-            # رفعنا الـ bottom لـ 0.25 عشان الكلمة اللي تحت (X-label) تظهر بوضوح
-            # وصغرنا الـ height لـ 0.65 عشان الرسمة تصغر شوية
             self.ax_spectrum.set_position([0.15, 0.25, 0.75, 0.65])
-
-            # ثبات الشكل في المنتصف
             self.ax_spectrum.set_anchor('C')
 
-            # الشكل العام
             self.ax_spectrum.tick_params(axis='both', colors="white", labelsize=8)
-            # self.ax_spectrum.set_title("X-Ray Spectrum", color="white", fontsize=10)
             self.ax_spectrum.set_xlabel("Photon energy (keV)", color="white", fontsize=9)
             self.ax_spectrum.set_ylabel("Fluence/mm²/mAs", color="white", fontsize=9)
             self.ax_spectrum.grid(True, color='gray', linestyle='--', alpha=0.3)
@@ -258,22 +250,18 @@ class SpectrumWorkspaceDialog(QDialog):
 
                 import matplotlib.ticker as ticker
 
-                # تنسيق الأرقام العلمية (Scientific Notation)
                 formatter = ticker.ScalarFormatter(useMathText=True)
                 formatter.set_scientific(True)
                 formatter.set_powerlimits((-1, 1))
                 self.ax_spectrum.yaxis.set_major_formatter(formatter)
 
-                # تلوين الـ 10^x باللون الأبيض
                 self.ax_spectrum.yaxis.get_offset_text().set_color("white")
                 self.ax_spectrum.yaxis.get_offset_text().set_size(8)
 
-                # ضبط الحدود
                 lim_y = float(np.max(intensities)) if np.max(intensities) > 0 else 1.0
                 self.ax_spectrum.set_xlim([0, max(150, int(self.kVp))])
                 self.ax_spectrum.set_ylim([0, lim_y * 1.2])
 
-                # النصوص التوضيحية للطاقة
                 nonzero = energies[intensities > 0.0]
                 min_e = nonzero.min() if len(nonzero) > 0 else 2.0
                 max_e = self.kVp
@@ -289,7 +277,6 @@ class SpectrumWorkspaceDialog(QDialog):
                     ha='right', fontsize=8
                 )
 
-            # تحديث الكانفاس بدون tight_layout
             self.canvas_spectrum.draw_idle()
 
     def _render_mu_map(self, kvp, mu_map=None):
@@ -303,21 +290,12 @@ class SpectrumWorkspaceDialog(QDialog):
         self.ax_mu.clear()
         self.ax_mu.set_facecolor("black")
 
-        # --- توسيط الرسمة في النص بالظبط ---
-        # حددنا أبعاد متساوية للهوامش [left, bottom, width, height]
         self.ax_mu.set_position([0.1, 0.1, 0.8, 0.8])
-
-        # تثبيت الصورة والنسبة (Aspect Ratio)
         self.ax_mu.set_aspect('equal')
         self.ax_mu.set_anchor('C')
 
         image = self.ax_mu.imshow(mu_map, cmap="hot", vmin=0, vmax=1.2)
 
-        # contrast_text = "High Contrast" if kvp < 100 else "Low Contrast"
-        # self.ax_mu.set_title(contrast_text, color="white", fontsize=10)
-        # self.ax_mu.axis("off")
-
-        # إدارة الـ Colorbar لضمان عدم التكرار أو تدمير التوسيط
         if not hasattr(self, "mu_colorbar") or self.mu_colorbar is None:
             self.mu_colorbar = self.fig_mu.colorbar(
                 image, ax=self.ax_mu, fraction=0.046, pad=0.04
@@ -399,25 +377,6 @@ class SpectrumWorkspaceDialog(QDialog):
         # render sinograms using mu_map and total_i0
         self._render_sinograms(self._cached_mu_map, self._cached_total_i0, step_angle=self.step_angle)
 
-        if notify_parent and self.parent_app and hasattr(self.parent_app, "sync_step_angle_from_dialog"):
-            self.parent_app.sync_step_angle_from_dialog(self.step_angle)
-
-        if self.parent_app and hasattr(self.parent_app, "preview_spectrum"):
+        # Notify parent (main window) about changes to sync it
+        if notify_parent and self.parent_app and hasattr(self.parent_app, "preview_spectrum"):
             self.parent_app.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al)
-
-        # timestamp = datetime.datetime.now().strftime("%d-%b-%Y %H:%M:%S")
-        # print(f"{timestamp} Spectrum workspace updated: {self.kVp} kVp, {self.mA} mA")
-
-    def sync_step_angle_from_main(self, step_angle):
-        new_step_angle = int(step_angle)
-        
-        # Only proceed if value actually changed
-        if new_step_angle == self.step_angle:
-            return
-        
-        self.step_angle = new_step_angle
-        self.step_slider.blockSignals(True)
-        self.step_slider.setValue(self.step_angle)
-        self.step_slider.blockSignals(False)
-        self.step_value_label.setText(str(self.step_angle))
-        self._refresh_workspace(notify_parent=False)
