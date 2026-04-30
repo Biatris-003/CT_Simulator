@@ -377,6 +377,6 @@ class SpectrumWorkspaceDialog(QDialog):
         # render sinograms using mu_map and total_i0
         self._render_sinograms(self._cached_mu_map, self._cached_total_i0, step_angle=self.step_angle)
 
-        # Notify parent (main window) about changes to sync it
+        # Notify parent (main window) about changes - NOW INCLUDES STEP_ANGLE
         if notify_parent and self.parent_app and hasattr(self.parent_app, "preview_spectrum"):
-            self.parent_app.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al)
+            self.parent_app.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al, self.step_angle)

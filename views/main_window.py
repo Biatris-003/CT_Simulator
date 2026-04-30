@@ -564,14 +564,44 @@ class SimulatorCTLabApp(QMainWindow):
         self.spectrum_dialog.raise_()
         self.spectrum_dialog.activateWindow()
 
-    def preview_spectrum(self, q, energies, kvp, ma, cu, al):
+    def preview_spectrum(self, q, energies, kvp, ma, cu, al, step_angle=None):
         """Called from spectrum workspace to update main window spectrum parameters"""
+        # Store the new spectrum parameters
+        new_kvp = kvp
+        new_ma = ma
+        new_step_angle = step_angle if step_angle is not None else self.step_angle
+        
+        # Only proceed if any value actually changed
+        if (new_kvp == self.kVp and new_ma == self.mA and 
+            cu == self.Cu and al == self.Al and new_step_angle == self.step_angle):
+            return
+        
         self.q = q
         self.E0 = energies
-        self.kVp = kvp
-        self.mA = ma
+        self.kVp = new_kvp
+        self.mA = new_ma
         self.Cu = cu
         self.Al = al
+        self.step_angle = new_step_angle
+        
+        # Update the main window step angle slider to match spectrum window
+        self.step_angle_slider.blockSignals(True)
+        self.step_angle_slider.setValue(self.step_angle)
+        self.step_angle_slider.blockSignals(False)
+        self.step_angle_label.setText(f"{self.step_angle}°")
+        
+        # FULL RECOMPUTATION: invalidate all caches and refresh everything
+        self._cached_spectrum_key = None  # Force spectrum recalculation
+        self._cached_mu_map = None        # Force mu_map recalculation
+        self._cached_total_i0 = None      # Force total_i0 recalculation
+        self._cached_full_sino = None     # Force sinogram regeneration
+        self._cached_sparse_sino = None
+        self._cached_sparse_fbp = None    # Force FBP recalculation
+        self._cached_full_fbp = None
+        self._cached_sparse_lsr = None    # Force LSR recalculation
+        self._cached_full_lsr = None
+        
+        # Now refresh everything
         self._refresh_workspace()
 
     def show_fbp_metric_dialog(self):
@@ -612,8 +642,8 @@ class SimulatorCTLabApp(QMainWindow):
         self.lsr_dialog.raise_()
         self.lsr_dialog.activateWindow()
 
-    def chosen_spectrum(self, q, energies, kvp, ma, cu, al):
-        self.preview_spectrum(q, energies, kvp, ma, cu, al)
+    def chosen_spectrum(self, q, energies, kvp, ma, cu, al, step_angle=None):
+        self.preview_spectrum(q, energies, kvp, ma, cu, al, step_angle)
 
 
 if __name__ == '__main__':
