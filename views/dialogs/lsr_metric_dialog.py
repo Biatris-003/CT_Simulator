@@ -99,7 +99,7 @@ class LSRMetricDialog(QDialog):
         iterations_row = QHBoxLayout(); layout.addLayout(iterations_row)
         iterations_row.addWidget(QLabel("Iterations:"))
         self.iter_slider = QSlider(Qt.Orientation.Horizontal)
-        self.iter_slider.setRange(1, 100); self.iter_slider.setValue(self.iterations); self.iter_slider.setSingleStep(1)
+        self.iter_slider.setRange(1, 40); self.iter_slider.setValue(self.iterations); self.iter_slider.setSingleStep(1)
         self.iter_label = QLabel(str(self.iterations))
         self.iter_slider.valueChanged.connect(lambda v: self.iter_label.setText(f"{v}"))
         self.iter_slider.sliderReleased.connect(self._on_iter_slider_released)

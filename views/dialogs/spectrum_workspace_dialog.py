@@ -73,7 +73,7 @@ class SpectrumWorkspaceDialog(QDialog):
         top_row.addWidget(spectrum_group, 1)
 
         # Mu Map
-        mu_group = QGroupBox("3-Material Mu Map")
+        mu_group = QGroupBox("Mu Map")
         mu_layout = QVBoxLayout(mu_group)
         self.fig_mu = Figure(facecolor="#1E1E2E")
         self.ax_mu = self.fig_mu.add_subplot(111)
@@ -135,7 +135,7 @@ class SpectrumWorkspaceDialog(QDialog):
         main_layout.addLayout(bottom_row)
 
         # Noisy Sinogram
-        noisy_group = QGroupBox("Noisy Sinogram")
+        noisy_group = QGroupBox("Sinogram")
         noisy_layout = QVBoxLayout(noisy_group)
         self.fig_noisy_sino = Figure(facecolor="#1E1E2E")
         self.ax_noisy_sino = self.fig_noisy_sino.add_subplot(111)

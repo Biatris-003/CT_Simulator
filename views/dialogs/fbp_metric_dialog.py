@@ -89,7 +89,7 @@ class FBPMetricDialog(QDialog):
 
         # CONTROLS
         controls_row = QHBoxLayout(); layout.addLayout(controls_row)
-        controls_row.addWidget(QLabel("Step Angle (Applies only to this snapshot)"))
+        controls_row.addWidget(QLabel("Step Angle"))
         self.step_slider = QSlider(Qt.Orientation.Horizontal)
         self.step_slider.setRange(1, 10); self.step_slider.setValue(self.step_angle); self.step_slider.setSingleStep(1)
         self.step_label = QLabel(f"{self.step_angle}°")

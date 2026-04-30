@@ -90,7 +90,7 @@ class SimulatorCTLabApp(QMainWindow):
         workspace_grid.addWidget(phantom_group, 0, 1)
 
         # ---------- NMSE FBP vs Dense ----------
-        fbp_nmse_group = QGroupBox("NMSE: FBP vs Dense")
+        fbp_nmse_group = QGroupBox("NMSE: FBP")
         fbp_nmse_layout = QVBoxLayout(fbp_nmse_group)
         self.fig_fbp_nmse = Figure(facecolor="#1E1E2E")
         self.ax_fbp_nmse = self.fig_fbp_nmse.add_subplot(111)
@@ -100,7 +100,7 @@ class SimulatorCTLabApp(QMainWindow):
         workspace_grid.addWidget(fbp_nmse_group, 1, 0)
 
         # ---------- NMSE LSR vs Dense ----------
-        lsr_nmse_group = QGroupBox("NMSE: LSR (Sparse vs Full)")
+        lsr_nmse_group = QGroupBox("NMSE: LSR")
         lsr_nmse_layout = QVBoxLayout(lsr_nmse_group)
         self.fig_lsr_nmse = Figure(facecolor="#1E1E2E")
         self.ax_lsr_nmse = self.fig_lsr_nmse.add_subplot(111)
@@ -136,15 +136,15 @@ class SimulatorCTLabApp(QMainWindow):
         self.btn_open_spectrum.clicked.connect(self.show_spectrum_workspace)
         controls_layout.addWidget(self.btn_open_spectrum)
 
-        self.btn_compare_fbp = QPushButton("Compare FBP Metric")
+        self.btn_compare_fbp = QPushButton("FBP Reconstruction Analysis")
         self.btn_compare_fbp.clicked.connect(self.show_fbp_metric_dialog)
         controls_layout.addWidget(self.btn_compare_fbp)
 
-        self.btn_compare_lsr = QPushButton("Compare LSR Metric")
+        self.btn_compare_lsr = QPushButton("LSR Reconstruction Analysis")
         self.btn_compare_lsr.clicked.connect(self.show_lsr_metric_dialog)
         controls_layout.addWidget(self.btn_compare_lsr)
 
-        self.btn_compare_fbp_lsm = QPushButton("Compare FBP vs LSM Metric")
+        self.btn_compare_fbp_lsm = QPushButton("Run Simulation")
         self.btn_compare_fbp_lsm.clicked.connect(self.compare_fbp_vs_lsm)
         controls_layout.addWidget(self.btn_compare_fbp_lsm)
 
@@ -164,7 +164,7 @@ class SimulatorCTLabApp(QMainWindow):
         controls_layout.addWidget(QLabel("Iterations"))
         iter_row = QHBoxLayout()
         self.iter_slider = QSlider(Qt.Orientation.Horizontal)
-        self.iter_slider.setRange(1, 100)
+        self.iter_slider.setRange(1, 40)
         self.iter_slider.setValue(self.iterations)
         self.iter_slider.setSingleStep(1)
         self.iter_slider.setPageStep(1)
@@ -174,15 +174,41 @@ class SimulatorCTLabApp(QMainWindow):
         iter_row.addWidget(self.iter_label)
         controls_layout.addLayout(iter_row)
 
-        self.fbp_metrics_label = QLabel("NMSE: --, PSNR: -- dB")
-        self.lsr_metrics_label = QLabel("NMSE: --, PSNR: -- dB")
-        metrics_row = QHBoxLayout()
-        metrics_row.addWidget(self.fbp_metrics_label, alignment=Qt.AlignLeft)
-        metrics_row.addStretch()
-        metrics_row.addWidget(self.lsr_metrics_label, alignment=Qt.AlignRight)
-        self.fbp_metrics_label.setContentsMargins(10, 10, 10, 0)
-        self.lsr_metrics_label.setContentsMargins(10, 10, 10, 0)
-        controls_layout.addLayout(metrics_row)
+        metrics_grid = QGridLayout()
+        metrics_grid.addWidget(QLabel(""), 0, 0)
+
+        fbp_header = QLabel("FBP")
+        lsr_header = QLabel("LSR")
+        fbp_header.setAlignment(Qt.AlignCenter)
+        lsr_header.setAlignment(Qt.AlignCenter)
+        metrics_grid.addWidget(fbp_header, 0, 1)
+        metrics_grid.addWidget(lsr_header, 0, 2)
+
+        nmse_label = QLabel("NMSE")
+        psnr_label = QLabel("PSNR")
+        nmse_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        psnr_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        metrics_grid.addWidget(nmse_label, 1, 0)
+        metrics_grid.addWidget(psnr_label, 2, 0)
+
+        self.fbp_nmse_value_label = QLabel("--")
+        self.lsr_nmse_value_label = QLabel("--")
+        self.fbp_psnr_value_label = QLabel("-- dB")
+        self.lsr_psnr_value_label = QLabel("-- dB")
+        for label in (
+            self.fbp_nmse_value_label,
+            self.lsr_nmse_value_label,
+            self.fbp_psnr_value_label,
+            self.lsr_psnr_value_label,
+        ):
+            label.setAlignment(Qt.AlignCenter)
+
+        metrics_grid.addWidget(self.fbp_nmse_value_label, 1, 1)
+        metrics_grid.addWidget(self.lsr_nmse_value_label, 1, 2)
+        metrics_grid.addWidget(self.fbp_psnr_value_label, 2, 1)
+        metrics_grid.addWidget(self.lsr_psnr_value_label, 2, 2)
+
+        controls_layout.addLayout(metrics_grid)
         controls_layout.addStretch()
 
         workspace_grid.addWidget(controls_group, 1, 1)
@@ -279,7 +305,8 @@ class SimulatorCTLabApp(QMainWindow):
         self.ax_fbp_nmse.clear(); self.ax_fbp_nmse.set_facecolor("black")
 
         if self.material_phantom is None or sparse_fbp is None:
-            self.fbp_metrics_label.setText("FBP: NMSE: --, PSNR: -- dB")
+            self.fbp_nmse_value_label.setText("--")
+            self.fbp_psnr_value_label.setText("-- dB")
             return
 
         metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_fbp)
@@ -288,7 +315,8 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.ax_fbp_nmse.text(0.5, -0.12, f"NMSE: {metrics['nmse']:.4f}\nPSNR: {metrics['psnr']:.2f} dB\n(Original vs FBP)",
             color="#FF4800", fontsize=10, ha="center", va="top", transform=self.ax_fbp_nmse.transAxes, bbox=dict(facecolor='black', alpha=0.6, edgecolor='#555555'))
-        self.fbp_metrics_label.setText(f"NMSE: {metrics['nmse']:.4f}, PSNR: {metrics['psnr']:.2f} dB")
+        self.fbp_nmse_value_label.setText(f"{metrics['nmse']:.4f}")
+        self.fbp_psnr_value_label.setText(f"{metrics['psnr']:.2f} dB")
 
         if hasattr(self, 'cbar_fbp_nmse_ax'): self.cbar_fbp_nmse_ax.remove(); delattr(self, 'cbar_fbp_nmse_ax')
         cax = make_axes_locatable(self.ax_fbp_nmse).append_axes("right", size="5%", pad=0.05)
@@ -302,7 +330,8 @@ class SimulatorCTLabApp(QMainWindow):
         self.ax_lsr_nmse.clear(); self.ax_lsr_nmse.set_facecolor("black")
 
         if self.material_phantom is None or sparse_lsr is None:
-            self.lsr_metrics_label.setText("LSR: NMSE: --, PSNR: -- dB")
+            self.lsr_nmse_value_label.setText("--")
+            self.lsr_psnr_value_label.setText("-- dB")
             return
 
         metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_lsr)
@@ -311,7 +340,8 @@ class SimulatorCTLabApp(QMainWindow):
 
         self.ax_lsr_nmse.text(0.5, -0.12, f"NMSE: {metrics['nmse']:.4f}\nPSNR: {metrics['psnr']:.2f} dB\n(Original vs LSR)",
             color="#FF4800", fontsize=10, ha="center", va="top", transform=self.ax_lsr_nmse.transAxes, bbox=dict(facecolor='black', alpha=0.6, edgecolor='#555555'))
-        self.lsr_metrics_label.setText(f"NMSE: {metrics['nmse']:.4f}, PSNR: {metrics['psnr']:.2f} dB")
+        self.lsr_nmse_value_label.setText(f"{metrics['nmse']:.4f}")
+        self.lsr_psnr_value_label.setText(f"{metrics['psnr']:.2f} dB")
 
         if hasattr(self, 'cbar_lsr_nmse_ax'): self.cbar_lsr_nmse_ax.remove(); delattr(self, 'cbar_lsr_nmse_ax')
         cax = make_axes_locatable(self.ax_lsr_nmse).append_axes("right", size="5%", pad=0.05)
