@@ -81,7 +81,13 @@ class SimulatorCTLabApp(QMainWindow):
         self._cached_sparse_fbp = None
         self._cached_full_fbp = None
         self._cached_sparse_lsr = None
+
+        # ------------------------------------------------------------------
+        # PERFORMANCE FIX: full LSR is keyed by (iterations, spectrum_key)
+        # so it is NOT invalidated when only the step angle changes.
+        # ------------------------------------------------------------------
         self._cached_full_lsr = None
+        self._cached_full_lsr_key = None   # (iterations, spectrum_key)
 
         # ================= GLOBAL STATE =================
         self.kVp = 100
@@ -313,7 +319,7 @@ class SimulatorCTLabApp(QMainWindow):
         if mu_map is None or total_i0 is None:
             return
 
-        # recompute whenever the step angle changes or the cache is empty
+        # Recompute whenever the step angle changes or the cache is empty
         if (
             self._cached_sparse_sino is None
             or self._cached_full_sino is None
@@ -329,11 +335,14 @@ class SimulatorCTLabApp(QMainWindow):
             self._cached_full_angles = full_angles
             self._cached_sparse_angles = sparse_angles
             self._cached_step_angle = self.step_angle
-            # Invalidate cached reconstructions when sinograms change
+
+            # Invalidate FBP and SPARSE LSR caches when sinograms change,
+            # but DO NOT invalidate full LSR — it only depends on the full
+            # sinogram (360°, 1° steps) which never changes with step_angle.
             self._cached_sparse_fbp = None
             self._cached_full_fbp = None
             self._cached_sparse_lsr = None
-            self._cached_full_lsr = None
+            # NOTE: _cached_full_lsr is intentionally NOT cleared here.
 
     def _render_sparse_fbp_only(self):
         """Render FBP reconstruction (sparse) in main window"""
@@ -365,34 +374,48 @@ class SimulatorCTLabApp(QMainWindow):
         self._render_fbp_nmse(self._cached_full_fbp, self._cached_sparse_fbp)
 
     def _render_sparse_lsr_only(self):
-        """Render LSR reconstruction (sparse) in main window"""
+        """Render LSR reconstruction (sparse) in main window.
+
+        Performance strategy
+        --------------------
+        * Sparse LSR  — always recomputed because it depends on both step_angle
+                        and iterations.
+        * Full LSR    — cached under the key (iterations, spectrum_key) so it is
+                        reused whenever only the step angle changes, which is the
+                        most common interaction.  It is only recomputed when the
+                        user changes iterations or the spectrum parameters.
+        """
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None:
             return
 
-        # Compute sparse LSR with current iterations using PROPER SIRT
+        # ── Sparse LSR: always recompute ────────────────────────────────────
         sparse_lsr = IterativeReconstruction.sirt_reconstruction(
             self._cached_sparse_sino,
             self._cached_sparse_angles,
             iterations=self.iterations,
             damping_factor=0.03,
-            verbose=False
+            verbose=False,
         )
 
-        # Compute full LSR for reference (cache it)
-        if self._cached_full_lsr is None:
+        # ── Full LSR: recompute only when (iterations, spectrum) changed ─────
+        full_lsr_key = (self.iterations, self._cached_spectrum_key)
+        if self._cached_full_lsr is None or self._cached_full_lsr_key != full_lsr_key:
             self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction(
                 self._cached_full_sino,
                 self._cached_full_angles,
                 iterations=self.iterations,
                 damping_factor=0.03,
-                verbose=False
+                verbose=False,
             )
+            self._cached_full_lsr_key = full_lsr_key
 
         self.ax_lsr_sparse.clear()
         self.ax_lsr_sparse.set_facecolor("black")
         self.ax_lsr_sparse.imshow(sparse_lsr, cmap="gray")
-        self.ax_lsr_sparse.set_title(f"Sparse LSR @ mA: {self.mA}, kVp: {self.kVp}, iter: {self.iterations}", 
-                                     color="white")
+        self.ax_lsr_sparse.set_title(
+            f"Sparse LSR @ mA: {self.mA}, kVp: {self.kVp}, iter: {self.iterations}",
+            color="white",
+        )
         self.ax_lsr_sparse.axis("off")
         self.canvas_lsr_sparse.draw_idle()
 
@@ -527,33 +550,48 @@ class SimulatorCTLabApp(QMainWindow):
             )
             self._cached_spectrum_key = spectrum_key
 
+            # Spectrum changed — invalidate ALL caches including full LSR
+            self._cached_full_lsr = None
+            self._cached_full_lsr_key = None
+
         self._render_sinograms(self._cached_mu_map, self._cached_total_i0)
         self._render_sparse_fbp_only()
         self._render_sparse_lsr_only()
 
     def _on_step_angle_changed(self):
-        """Step angle slider released - update step angle and refresh MAIN WINDOW ONLY"""
+        """Step angle slider released - update step angle and refresh MAIN WINDOW ONLY.
+
+        NOTE: does NOT invalidate _cached_full_lsr because the full sinogram
+        (360°, 1° steps) is independent of step_angle.
+        """
         new_step_angle = self.step_angle_slider.value()
-        
-        # Only proceed if value actually changed
+
         if new_step_angle == self.step_angle:
             return
-        
+
         self.step_angle = new_step_angle
         self.step_angle_label.setText(f"{self.step_angle}°")
         self._refresh_workspace()
 
     def _on_iterations_changed(self):
-        """Iterations slider released - update iterations and refresh LSR in MAIN WINDOW ONLY"""
+        """Iterations slider released - update iterations and refresh LSR in MAIN WINDOW ONLY.
+
+        Changing iterations invalidates BOTH sparse and full LSR caches because
+        the number of SIRT iterations affects both reconstructions.
+        """
         new_iterations = self.iter_slider.value()
-        
-        # Only proceed if value actually changed
+
         if new_iterations == self.iterations:
             return
-        
+
         self.iterations = new_iterations
         self.iter_label.setText(str(self.iterations))
-        # Only recompute LSR (fast operation, no sinogram regeneration)
+
+        # Invalidate full LSR cache so it is recomputed with new iteration count
+        self._cached_full_lsr = None
+        self._cached_full_lsr_key = None
+
+        # Only recompute LSR (no sinogram regeneration needed)
         self._render_sparse_lsr_only()
 
     def show_spectrum_workspace(self):
@@ -566,16 +604,14 @@ class SimulatorCTLabApp(QMainWindow):
 
     def preview_spectrum(self, q, energies, kvp, ma, cu, al, step_angle=None):
         """Called from spectrum workspace to update main window spectrum parameters"""
-        # Store the new spectrum parameters
         new_kvp = kvp
         new_ma = ma
         new_step_angle = step_angle if step_angle is not None else self.step_angle
-        
-        # Only proceed if any value actually changed
-        if (new_kvp == self.kVp and new_ma == self.mA and 
-            cu == self.Cu and al == self.Al and new_step_angle == self.step_angle):
+
+        if (new_kvp == self.kVp and new_ma == self.mA and
+                cu == self.Cu and al == self.Al and new_step_angle == self.step_angle):
             return
-        
+
         self.q = q
         self.E0 = energies
         self.kVp = new_kvp
@@ -583,25 +619,25 @@ class SimulatorCTLabApp(QMainWindow):
         self.Cu = cu
         self.Al = al
         self.step_angle = new_step_angle
-        
+
         # Update the main window step angle slider to match spectrum window
         self.step_angle_slider.blockSignals(True)
         self.step_angle_slider.setValue(self.step_angle)
         self.step_angle_slider.blockSignals(False)
         self.step_angle_label.setText(f"{self.step_angle}°")
-        
+
         # FULL RECOMPUTATION: invalidate all caches and refresh everything
-        self._cached_spectrum_key = None  # Force spectrum recalculation
-        self._cached_mu_map = None        # Force mu_map recalculation
-        self._cached_total_i0 = None      # Force total_i0 recalculation
-        self._cached_full_sino = None     # Force sinogram regeneration
+        self._cached_spectrum_key = None
+        self._cached_mu_map = None
+        self._cached_total_i0 = None
+        self._cached_full_sino = None
         self._cached_sparse_sino = None
-        self._cached_sparse_fbp = None    # Force FBP recalculation
+        self._cached_sparse_fbp = None
         self._cached_full_fbp = None
-        self._cached_sparse_lsr = None    # Force LSR recalculation
+        self._cached_sparse_lsr = None
         self._cached_full_lsr = None
-        
-        # Now refresh everything
+        self._cached_full_lsr_key = None
+
         self._refresh_workspace()
 
     def show_fbp_metric_dialog(self):
