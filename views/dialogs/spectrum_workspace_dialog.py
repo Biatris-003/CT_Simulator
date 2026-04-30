@@ -11,8 +11,11 @@ from PyQt5.QtWidgets import (
     QSlider,
     QVBoxLayout,
 )
+# =========================
+# MATPLOTLIB QT BACKEND (Object-Oriented Only - NO PLT)
+# =========================
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from models.phantom_material_map import (
     get_mu_for_material,
@@ -24,10 +27,9 @@ from models.reconstruction import SparseReconstruction
 from views import style
 
 class SpectrumWorkspaceDialog(QDialog):
-    def __init__(self, parent_app=None, phantom_material_map=None):
+    def __init__(self, parent_app=None, phantom_material_map=None, initial_step_angle=1):
         super().__init__(parent_app)
 
-        self.parent_app = parent_app
         self.phantom_material_map = (
             phantom_material_map
             if phantom_material_map is not None
@@ -51,7 +53,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self._cached_sparse_fbp = None
         self.kVp = 100
         self.mA = 2
-        self.step_angle = int(getattr(parent_app, "step_angle", 1))
+        self.step_angle = initial_step_angle  
         self.Cu = 0.0
         self.Al = 0.0
 
@@ -64,7 +66,8 @@ class SpectrumWorkspaceDialog(QDialog):
         # Spectrum
         spectrum_group = QGroupBox("X-Ray Spectrum")
         spectrum_layout = QVBoxLayout(spectrum_group)
-        self.fig_spectrum, self.ax_spectrum = plt.subplots(facecolor="#1E1E2E")
+        self.fig_spectrum = Figure(facecolor="#1E1E2E")
+        self.ax_spectrum = self.fig_spectrum.add_subplot(111)
         self.canvas_spectrum = FigureCanvas(self.fig_spectrum)
         spectrum_layout.addWidget(self.canvas_spectrum)
         top_row.addWidget(spectrum_group, 1)
@@ -72,7 +75,8 @@ class SpectrumWorkspaceDialog(QDialog):
         # Mu Map
         mu_group = QGroupBox("3-Material Mu Map")
         mu_layout = QVBoxLayout(mu_group)
-        self.fig_mu, self.ax_mu = plt.subplots(facecolor="#1E1E2E")
+        self.fig_mu = Figure(facecolor="#1E1E2E")
+        self.ax_mu = self.fig_mu.add_subplot(111)
         self.canvas_mu = FigureCanvas(self.fig_mu)
         mu_layout.addWidget(self.canvas_mu)
         top_row.addWidget(mu_group, 1)
@@ -88,7 +92,6 @@ class SpectrumWorkspaceDialog(QDialog):
         self.kv_slider.setRange(40, 140)
         self.kv_slider.setValue(self.kVp)
         self.kv_value_label = QLabel(str(self.kVp))
-        # Only connect to sliderReleased for efficiency
         self.kv_slider.sliderReleased.connect(self._on_kv_slider_released)
 
         kv_row.addWidget(self.kv_slider)
@@ -104,14 +107,13 @@ class SpectrumWorkspaceDialog(QDialog):
         self.ma_value_label = QLabel(str(self.mA))
         self.ma_slider.setSingleStep(1)
         self.ma_slider.setPageStep(1)
-        # Only connect to sliderReleased for efficiency
         self.ma_slider.sliderReleased.connect(self._on_ma_slider_released)
 
         ma_row.addWidget(self.ma_slider)
         ma_row.addWidget(self.ma_value_label)
         controls_layout.addLayout(ma_row)
 
-        # Step-angle slider (1..10 deg), updates on release
+        # Step-angle slider
         step_row = QHBoxLayout()
         step_row.addWidget(QLabel("Step Angle"))
         self.step_slider = QSlider(Qt.Orientation.Horizontal)
@@ -120,11 +122,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self.step_slider.setSingleStep(1)
         self.step_slider.setPageStep(1)
         self.step_value_label = QLabel(str(self.step_angle))
-        # Connect valueChanged ONLY for label update (no heavy computation)
-        self.step_slider.valueChanged.connect(
-            lambda v: self.step_value_label.setText(str(v))
-        )
-        # Only connect to sliderReleased for actual recomputation
+        self.step_slider.valueChanged.connect(lambda v: self.step_value_label.setText(str(v)))
         self.step_slider.sliderReleased.connect(self._on_step_slider_released)
         step_row.addWidget(self.step_slider)
         step_row.addWidget(self.step_value_label)
@@ -139,7 +137,8 @@ class SpectrumWorkspaceDialog(QDialog):
         # Noisy Sinogram
         noisy_group = QGroupBox("Noisy Sinogram")
         noisy_layout = QVBoxLayout(noisy_group)
-        self.fig_noisy_sino, self.ax_noisy_sino = plt.subplots(facecolor="#1E1E2E")
+        self.fig_noisy_sino = Figure(facecolor="#1E1E2E")
+        self.ax_noisy_sino = self.fig_noisy_sino.add_subplot(111)
         self.canvas_noisy_sino = FigureCanvas(self.fig_noisy_sino)
         noisy_layout.addWidget(self.canvas_noisy_sino)
         bottom_row.addWidget(noisy_group, 1)
@@ -147,7 +146,8 @@ class SpectrumWorkspaceDialog(QDialog):
         # Sparse FBP Reconstruction
         sparse_fbp_group = QGroupBox("Sparse FBP Reconstruction")
         sparse_fbp_layout = QVBoxLayout(sparse_fbp_group)
-        self.fig_sparse_fbp, self.ax_sparse_fbp = plt.subplots(facecolor="#1E1E2E")
+        self.fig_sparse_fbp = Figure(facecolor="#1E1E2E")
+        self.ax_sparse_fbp = self.fig_sparse_fbp.add_subplot(111)
         self.canvas_sparse_fbp = FigureCanvas(self.fig_sparse_fbp)
         sparse_fbp_layout.addWidget(self.canvas_sparse_fbp)
         bottom_row.addWidget(sparse_fbp_group, 1)
@@ -161,44 +161,43 @@ class SpectrumWorkspaceDialog(QDialog):
 
         main_layout.addLayout(footer)
 
-        # initial render
         self._refresh_workspace()
 
     def _on_kv_slider_released(self):
-        """kV slider released - affects BOTH spectrum workspace and main window"""
         new_kv = self.kv_slider.value()
-        
-        # Only proceed if value actually changed
         if new_kv == self.kVp:
             return
-        
         self.kVp = new_kv
         self.kv_value_label.setText(str(self.kVp))
         self._refresh_workspace()
+        
+        parent = self.parent()
+        if parent is not None and hasattr(parent, 'preview_spectrum'):
+            parent.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al, self.step_angle)
 
     def _on_ma_slider_released(self):
-        """mA slider released - affects BOTH spectrum workspace and main window"""
         new_ma = self.ma_slider.value()
-        
-        # Only proceed if value actually changed
         if new_ma == self.mA:
             return
-        
         self.mA = new_ma
         self.ma_value_label.setText(str(self.mA))
         self._refresh_workspace()
+        
+        parent = self.parent()
+        if parent is not None and hasattr(parent, 'preview_spectrum'):
+            parent.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al, self.step_angle)
 
     def _on_step_slider_released(self):
-        """Step angle slider released - affects BOTH spectrum workspace and main window"""
         new_step_angle = self.step_slider.value()
-        
-        # Only proceed if value actually changed
         if new_step_angle == self.step_angle:
             return
-        
         self.step_angle = new_step_angle
         self.step_value_label.setText(str(self.step_angle))
         self._refresh_workspace()
+        
+        parent = self.parent()
+        if parent is not None and hasattr(parent, 'preview_spectrum'):
+            parent.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al, self.step_angle)
 
     def _generate_spectrum_data(self, kVp, mA, Cu=0.0, Al=0.0):
         kVp = int(kVp)
@@ -234,50 +233,49 @@ class SpectrumWorkspaceDialog(QDialog):
         return energies, final_intensities
     
     def _render_spectrum(self, energies, intensities):
-            self.ax_spectrum.clear()
-            self.ax_spectrum.set_facecolor("black")
+        self.ax_spectrum.clear()
+        self.ax_spectrum.set_facecolor("black")
 
-            self.ax_spectrum.set_position([0.15, 0.25, 0.75, 0.65])
-            self.ax_spectrum.set_anchor('C')
+        self.ax_spectrum.set_position([0.15, 0.25, 0.75, 0.65])
+        self.ax_spectrum.set_anchor('C')
 
-            self.ax_spectrum.tick_params(axis='both', colors="white", labelsize=8)
-            self.ax_spectrum.set_xlabel("Photon energy (keV)", color="white", fontsize=9)
-            self.ax_spectrum.set_ylabel("Fluence/mm²/mAs", color="white", fontsize=9)
-            self.ax_spectrum.grid(True, color='gray', linestyle='--', alpha=0.3)
+        self.ax_spectrum.tick_params(axis='both', colors="white", labelsize=8)
+        self.ax_spectrum.set_xlabel("Photon energy (keV)", color="white", fontsize=9)
+        self.ax_spectrum.set_ylabel("Fluence/mm²/mAs", color="white", fontsize=9)
+        self.ax_spectrum.grid(True, color='gray', linestyle='--', alpha=0.3)
 
-            if len(energies) > 0 and len(intensities) > 0:
-                self.ax_spectrum.plot(energies, intensities, color="#0004FF", linewidth=1.5)
+        if len(energies) > 0 and len(intensities) > 0:
+            self.ax_spectrum.plot(energies, intensities, color="#0004FF", linewidth=1.5)
 
-                import matplotlib.ticker as ticker
+            import matplotlib.ticker as ticker
+            formatter = ticker.ScalarFormatter(useMathText=True)
+            formatter.set_scientific(True)
+            formatter.set_powerlimits((-1, 1))
+            self.ax_spectrum.yaxis.set_major_formatter(formatter)
 
-                formatter = ticker.ScalarFormatter(useMathText=True)
-                formatter.set_scientific(True)
-                formatter.set_powerlimits((-1, 1))
-                self.ax_spectrum.yaxis.set_major_formatter(formatter)
+            self.ax_spectrum.yaxis.get_offset_text().set_color("white")
+            self.ax_spectrum.yaxis.get_offset_text().set_size(8)
 
-                self.ax_spectrum.yaxis.get_offset_text().set_color("white")
-                self.ax_spectrum.yaxis.get_offset_text().set_size(8)
+            lim_y = float(np.max(intensities)) if np.max(intensities) > 0 else 1.0
+            self.ax_spectrum.set_xlim([0, max(150, int(self.kVp))])
+            self.ax_spectrum.set_ylim([0, lim_y * 1.2])
 
-                lim_y = float(np.max(intensities)) if np.max(intensities) > 0 else 1.0
-                self.ax_spectrum.set_xlim([0, max(150, int(self.kVp))])
-                self.ax_spectrum.set_ylim([0, lim_y * 1.2])
+            nonzero = energies[intensities > 0.0]
+            min_e = nonzero.min() if len(nonzero) > 0 else 2.0
+            max_e = self.kVp
 
-                nonzero = energies[intensities > 0.0]
-                min_e = nonzero.min() if len(nonzero) > 0 else 2.0
-                max_e = self.kVp
+            self.ax_spectrum.text(
+                0.95, 0.95, f"Min E: {int(min_e)} keV",
+                color="cyan", transform=self.ax_spectrum.transAxes,
+                ha='right', fontsize=8
+            )
+            self.ax_spectrum.text(
+                0.95, 0.88, f"Max E: {int(max_e)} keV",
+                color="cyan", transform=self.ax_spectrum.transAxes,
+                ha='right', fontsize=8
+            )
 
-                self.ax_spectrum.text(
-                    0.95, 0.95, f"Min E: {int(min_e)} keV",
-                    color="cyan", transform=self.ax_spectrum.transAxes,
-                    ha='right', fontsize=8
-                )
-                self.ax_spectrum.text(
-                    0.95, 0.88, f"Max E: {int(max_e)} keV",
-                    color="cyan", transform=self.ax_spectrum.transAxes,
-                    ha='right', fontsize=8
-                )
-
-            self.canvas_spectrum.draw_idle()
+        self.canvas_spectrum.draw_idle()
 
     def _render_mu_map(self, kvp, mu_map=None):
         if mu_map is None:
@@ -302,14 +300,16 @@ class SpectrumWorkspaceDialog(QDialog):
             )
             self.mu_colorbar.set_label(r'$\mu (cm^{-1})$', color="white")
             self.mu_colorbar.ax.yaxis.set_tick_params(color='white')
-            plt.setp(self.mu_colorbar.ax.get_yticklabels(), color='white')
+            
+            # Object-Oriented Color Formatting
+            for label in self.mu_colorbar.ax.get_yticklabels():
+                label.set_color('white')
         else:
             self.mu_colorbar.update_normal(image)
 
         self.canvas_mu.draw_idle()
 
     def _render_sinograms(self, mu_map, total_i0, step_angle=1.0):
-        # Compute sinograms
         _, noisy_sino, _, noisy_angles = generate_physics_sinogram(mu_map, total_i0, user_step_angle=step_angle)
 
         self._cached_noisy_sino = noisy_sino
@@ -319,33 +319,27 @@ class SpectrumWorkspaceDialog(QDialog):
         self.ax_noisy_sino.set_facecolor("black")
         self.ax_noisy_sino.imshow(noisy_sino, cmap="gray", aspect="auto")
         self.ax_noisy_sino.set_title(
-            f"Noisy Sinogram ({self.step_angle}°, {self.kVp} kVp, {self.mA} mA)",
-            color="white",
-            fontsize=9,
+            f"Noisy Sinogram ({self.step_angle}°, {self.kVp} kVp, {self.mA} mA)", color="white", fontsize=9,
         )
         self.ax_noisy_sino.axis("off")
         self.fig_noisy_sino.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.canvas_noisy_sino.draw_idle()
 
         self._cached_sparse_fbp = SparseReconstruction.fbp_reconstruction(
-            noisy_sino,
-            noisy_angles,
-            filter_name="ramp",
+            noisy_sino, noisy_angles, filter_name="ramp",
         )
 
         self.ax_sparse_fbp.clear()
         self.ax_sparse_fbp.set_facecolor("black")
         self.ax_sparse_fbp.imshow(self._cached_sparse_fbp, cmap="gray")
         self.ax_sparse_fbp.set_title(
-            f"Sparse FBP Reconstruction ({self.step_angle}°)",
-            color="white",
-            fontsize=9,
+            f"Sparse FBP Reconstruction ({self.step_angle}°)", color="white", fontsize=9,
         )
         self.ax_sparse_fbp.axis("off")
         self.fig_sparse_fbp.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.canvas_sparse_fbp.draw_idle()
 
-    def _refresh_workspace(self, *args, notify_parent=True):
+    def _refresh_workspace(self, *args):
         self.kVp = self.kv_slider.value()
         self.mA = self.ma_slider.value()
         self.step_angle = self.step_slider.value()
@@ -356,27 +350,17 @@ class SpectrumWorkspaceDialog(QDialog):
         spectrum_key = (self.kVp, self.mA, self.Cu, self.Al)
         if self._cached_spectrum_key != spectrum_key or self.energies is None:
             self.energies, self.q, self._cached_total_i0 = generate_spectrum_physics(
-                self.kVp,
-                self.mA,
-                self.Cu,
-                self.Al,
+                self.kVp, self.mA, self.Cu, self.Al,
             )
             self._cached_spectrum_key = spectrum_key
 
         mu_key = (self.kVp, self.phantom_material_map.shape[0])
         if self._cached_mu_map_key != mu_key or self._cached_mu_map is None:
             _, self._cached_mu_map = build_three_material_mu_map(
-                size=self.phantom_material_map.shape[0],
-                kvp=self.kVp,
+                size=self.phantom_material_map.shape[0], kvp=self.kVp,
             )
             self._cached_mu_map_key = mu_key
 
         self._render_spectrum(self.energies, self.q)
         self._render_mu_map(self.kVp, self._cached_mu_map)
-
-        # render sinograms using mu_map and total_i0
         self._render_sinograms(self._cached_mu_map, self._cached_total_i0, step_angle=self.step_angle)
-
-        # Notify parent (main window) about changes - NOW INCLUDES STEP_ANGLE
-        if notify_parent and self.parent_app and hasattr(self.parent_app, "preview_spectrum"):
-            self.parent_app.preview_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al, self.step_angle)

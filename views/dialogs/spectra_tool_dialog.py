@@ -3,8 +3,13 @@ import numpy as np
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QLabel, QPushButton, QGroupBox, QSlider)
 from PyQt5.QtCore import Qt
+
+# =========================
+# MATPLOTLIB QT BACKEND (Object-Oriented Only - NO PLT)
+# =========================
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
 from views import style
 
 
@@ -26,8 +31,10 @@ class SpectraToolDialog(QDialog):
         main_layout.addLayout(left_layout, 1)
         main_layout.addLayout(right_layout, 1)
 
-        # Spectra Axes
-        self.fig_spectra, self.ax_spectra = plt.subplots(facecolor='#1E1E2E')
+        # Spectra Axes (Upgraded to Object-Oriented)
+        self.fig_spectra = Figure(facecolor='#1E1E2E')
+        self.ax_spectra = self.fig_spectra.add_subplot(111)
+        
         self.ax_spectra.set_facecolor('#282A36')
         self.ax_spectra.tick_params(colors='white')
         self.ax_spectra.set_title('Spectrum', color='white')
@@ -135,7 +142,7 @@ class SpectraToolDialog(QDialog):
             self.ax_spectra.text(energies.max() * 0.4, limY * 0.99, f"Min energy: {int(min_e)} keV", color='white')
             self.ax_spectra.text(energies.max() * 0.4, limY * 0.88, f"Max energy: {int(max_e)} keV", color='white')
 
-        self.canvas_spectra.draw()
+        self.canvas_spectra.draw_idle()
 
     def update_preview(self, *args):
         """Live-update the spectrum plot and notify the main window."""
@@ -148,7 +155,8 @@ class SpectraToolDialog(QDialog):
         self._render_spectrum(energies, intensities)
 
         if self.parent_app and hasattr(self.parent_app, 'preview_spectrum'):
-            self.parent_app.preview_spectrum(self.q, energies, self.kVp, self.mA, self.Cu, self.Al)
+            # Use deep copies to protect data if passed back to main app
+            self.parent_app.preview_spectrum(np.copy(self.q), np.copy(energies), self.kVp, self.mA, self.Cu, self.Al)
 
     def on_generate(self):
         self.Al = 0.0
@@ -156,8 +164,8 @@ class SpectraToolDialog(QDialog):
         self.update_preview()
 
         if self.parent_app and hasattr(self.parent_app, 'chosen_spectrum'):
-            # energies and q are passed. MATLAB passes q as array
-            self.parent_app.chosen_spectrum(self.q, self.energies, self.kVp, self.mA, self.Cu, self.Al)
+            # Use deep copies to protect data if passed back to main app
+            self.parent_app.chosen_spectrum(np.copy(self.q), np.copy(self.energies), self.kVp, self.mA, self.Cu, self.Al)
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
