@@ -118,8 +118,7 @@ class LSRMetricDialog(QDialog):
     def _on_iter_slider_released(self):
         if self.iter_slider.value() == self.iterations: return
         self.iterations = self.iter_slider.value()
-        self._recompute_sparse_reconstruction()
-        self._recompute_metrics()
+        self._recompute_reconstructions()
         self._render_all()
 
     def _recompute_and_render(self):

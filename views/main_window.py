@@ -317,7 +317,10 @@ class SimulatorCTLabApp(QMainWindow):
             self.fbp_psnr_value_label.setText("-- dB")
             return
 
-        metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_fbp)
+        # metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_fbp)
+        metrics = ComparisonReconstruction.compute_reconstruction_error(self._cached_mu_map, sparse_fbp)
+
+        
         im = self.ax_fbp_nmse.imshow(metrics["emap"], cmap="hot", vmin=0.0, vmax=float(np.max(metrics["emap"])) if np.max(metrics["emap"]) > 0 else 1.0)
         self.ax_fbp_nmse.axis("off")
 
@@ -342,7 +345,9 @@ class SimulatorCTLabApp(QMainWindow):
             self.lsr_psnr_value_label.setText("-- dB")
             return
 
-        metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_lsr)
+        # metrics = ComparisonReconstruction.compute_reconstruction_error(self.material_phantom, sparse_lsr)
+        metrics = ComparisonReconstruction.compute_reconstruction_error(self._cached_mu_map, sparse_lsr)
+
         im = self.ax_lsr_nmse.imshow(metrics["emap"], cmap="hot", vmin=0.0, vmax=float(np.max(metrics["emap"])) if np.max(metrics["emap"]) > 0 else 1.0)
         self.ax_lsr_nmse.axis("off")
 
