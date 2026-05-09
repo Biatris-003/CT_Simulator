@@ -310,9 +310,7 @@ class SpectrumWorkspaceDialog(QDialog):
         self.canvas_mu.draw_idle()
 
     def _render_sinograms(self, mu_map, total_i0, step_angle=1.0):
-        _, noisy_sino, _, noisy_angles = generate_physics_sinogram(
-            mu_map, total_i0, user_step_angle=step_angle, return_full=False,
-        )
+        _, noisy_sino, _, noisy_angles = generate_physics_sinogram(mu_map, total_i0, user_step_angle=step_angle)
 
         self._cached_noisy_sino = noisy_sino
         self._cached_noisy_angles = noisy_angles
