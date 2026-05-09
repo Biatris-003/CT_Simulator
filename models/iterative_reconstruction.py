@@ -125,8 +125,9 @@ class IterativeReconstruction:
 
         # ── Initialize x at working resolution ──────────────────────────────
         if initial_guess is not None:
+            initial_guess_scale = str(initial_guess_scale).lower()
             if initial_guess_scale not in ("normalized", "raw"):
-                initial_guess_scale = "normalized"
+                raise ValueError("initial_guess_scale must be 'normalized' or 'raw'")
             if initial_guess_scale == "raw":
                 initial_guess = initial_guess / sino_max
             x = _resize_image(initial_guess.astype(np.float32), _SIRT_WORK_SIZE)
