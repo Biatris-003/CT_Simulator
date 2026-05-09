@@ -68,7 +68,7 @@ class SimulatorCTLabApp(QMainWindow):
         self.Cu = 0.0
         self.Al = 0.0
         self.step_angle = 1
-        self.iterations = 10
+        self.iterations = 5
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -156,7 +156,11 @@ class SimulatorCTLabApp(QMainWindow):
         self.step_angle_slider.setSingleStep(1)
         self.step_angle_slider.setPageStep(1)
         self.step_angle_label = QLabel(f"{self.step_angle}°")
-        self.step_angle_slider.valueChanged.connect(self._on_step_angle_changed)
+        # self.step_angle_slider.valueChanged.connect(self._on_step_angle_changed)
+        self.step_angle_slider.valueChanged.connect(
+            lambda v: self.step_angle_label.setText(f"{v}°")
+        )
+        self.step_angle_slider.sliderReleased.connect(self._on_step_angle_changed)
         step_angle_row.addWidget(self.step_angle_slider)
         step_angle_row.addWidget(self.step_angle_label)
         controls_layout.addLayout(step_angle_row)
@@ -169,7 +173,11 @@ class SimulatorCTLabApp(QMainWindow):
         self.iter_slider.setSingleStep(1)
         self.iter_slider.setPageStep(1)
         self.iter_label = QLabel(str(self.iterations))
-        self.iter_slider.valueChanged.connect(self._on_iterations_changed)
+        # self.iter_slider.valueChanged.connect(self._on_iterations_changed)
+        self.iter_slider.valueChanged.connect(
+            lambda v: self.iter_label.setText(str(v))
+        )
+        self.iter_slider.sliderReleased.connect(self._on_iterations_changed)
         iter_row.addWidget(self.iter_slider)
         iter_row.addWidget(self.iter_label)
         controls_layout.addLayout(iter_row)
@@ -282,7 +290,7 @@ class SimulatorCTLabApp(QMainWindow):
         QApplication.processEvents()
         sparse_lsr = IterativeReconstruction.sirt_reconstruction(
             self._cached_sparse_sino, self._cached_sparse_angles,
-            iterations=self.iterations, damping_factor=0.03, verbose=False,
+            iterations=self.iterations, damping_factor=0.05, verbose=False,
         )
 
         full_lsr_key = (self.iterations, self._cached_spectrum_key)
@@ -290,7 +298,7 @@ class SimulatorCTLabApp(QMainWindow):
             QApplication.processEvents()
             self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction(
                 self._cached_full_sino, self._cached_full_angles,
-                iterations=self.iterations, damping_factor=0.03, verbose=False,
+                iterations=self.iterations, damping_factor=0.05, verbose=False,
             )
             self._cached_full_lsr_key = full_lsr_key
 

@@ -15,7 +15,7 @@ from models.phantom_material_map import build_three_material_mu_map
 from views import style
 
 class LSRMetricDialog(QDialog):
-    def __init__(self, phantom_size=512, kVp=100, mA=2, Cu=0.0, Al=0.0, step_angle=1, iterations=10, parent=None):
+    def __init__(self, phantom_size=512, kVp=100, mA=2, Cu=0.0, Al=0.0, step_angle=1, iterations=5, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Compare LSR Metric (Frozen Snapshot @ {kVp}kVp, {mA}mA)")
         self.resize(1400, 950)
@@ -29,7 +29,7 @@ class LSRMetricDialog(QDialog):
         self.original = np.array(original_map, copy=True, dtype=np.float32)
         self.total_i0 = float(total_i0)
         self.kVp, self.mA, self.Cu, self.Al = kVp, mA, Cu, Al
-        self.step_angle, self.iterations, self.damping_factor = step_angle, iterations, 0.03
+        self.step_angle, self.iterations, self.damping_factor = step_angle, iterations, 0.05
         
         self.full_sino, self.sparse_sino, self.full_angles, self.sparse_angles = None, None, None, None
         self.full_recon, self.sparse_recon, self.error_map = None, None, None
@@ -93,6 +93,8 @@ class LSRMetricDialog(QDialog):
         self.step_slider = QSlider(Qt.Orientation.Horizontal)
         self.step_slider.setRange(1, 10); self.step_slider.setValue(self.step_angle); self.step_slider.setSingleStep(1)
         self.step_label = QLabel(f"{self.step_angle}°")
+        # self.step_slider.sliderReleased.connect(self._on_step_slider_released)
+        self.step_slider.valueChanged.connect(lambda v: self.step_label.setText(f"{v}°"))
         self.step_slider.sliderReleased.connect(self._on_step_slider_released)
         controls_row1.addWidget(self.step_slider); controls_row1.addWidget(self.step_label)
 
