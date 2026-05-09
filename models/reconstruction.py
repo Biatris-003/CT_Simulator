@@ -308,33 +308,4 @@ class ComparisonReconstruction:
         }
     
     @staticmethod
-    def compute_reconstruction_error(original, reconstructed):
-        from skimage.metrics import mean_squared_error
-        
-        # 1. أهم خطوة: توحيد المقياس (Min-Max Normalization)
-        # بنخلي قيم الصورتين بين 0 و 1 عشان الطرح يكون عادل
-        def normalize(img):
-            denom = (img.max() - img.min())
-            return (img - img.min()) / denom if denom != 0 else img
-
-        org_norm = normalize(original)
-        rec_norm = normalize(reconstructed)
-        
-        # 2. حساب الـ MSE على الصور المتوحدة
-        mse = mean_squared_error(org_norm, rec_norm)
-        original_power = np.mean(org_norm ** 2)
-        nmse = mse / original_power if original_power != 0 else mse
-        
-        # 3. حساب الـ PSNR
-        # بما إننا وحدنا لـ 0-1، يبقى الـ peak هو 1
-        psnr = 20 * np.log10(1.0 / np.sqrt(mse)) if mse > 0 else float('inf')
-        
-        # 4. حساب الـ Error Map
-        # دلوقتي الـ emap هتبين الـ Artifacts مش فرق الإضاءة
-        error_map = (org_norm - rec_norm) ** 2
-        
-        return {
-            'nmse': nmse,
-            'psnr': psnr,
-            'emap': error_map
-        }
+    

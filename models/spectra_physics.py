@@ -44,25 +44,30 @@ def generate_spectrum_physics(kVp, mA, Cu=0.0, Al=0.0):
     total_i0 = float(np.sum(final_intensities))
     return energies, final_intensities, total_i0
 
+
+
+
+
 def generate_physics_sinogram(mu_map, total_i0, user_step_angle, dx=0.1):
-    # --- 1. توليد الـ Reference ---
+    
     angles_ref = np.arange(0, 180, 1.0)
     ideal_sino_ref = radon(mu_map, theta=angles_ref) * dx
     
-    np.random.seed(42) # حطي الـ seed هنا قبل أول نويز
+    np.random.seed(42)
     intensity_ref = total_i0 * np.exp(-ideal_sino_ref)
-    noisy_intensity_ref = np.random.poisson(intensity_ref).astype(np.float32)
-    noisy_intensity_ref[noisy_intensity_ref <= 0] = 1.0
-    noisy_sino_ref = -np.log(noisy_intensity_ref / total_i0)
 
-    # --- 2. توليد الـ Variable ---
+    intensity_ref = np.random.poisson(intensity_ref).astype(np.float32)
+    intensity_ref[intensity_ref <= 0] = 1.0
+    sino_ref = -np.log(intensity_ref / total_i0)
+
+    # --- sparse angles ---
     angles_var = np.arange(0, 180, user_step_angle)
     ideal_sino_var = radon(mu_map, theta=angles_var) * dx
     
-    np.random.seed(42) # وعيدي الـ seed هنا تاني قبل تاني نويز
+    np.random.seed(42) 
     intensity_var = total_i0 * np.exp(-ideal_sino_var)
-    noisy_intensity_var = np.random.poisson(intensity_var).astype(np.float32)
-    noisy_intensity_var[noisy_intensity_var <= 0] = 1.0
-    noisy_sino_var = -np.log(noisy_intensity_var / total_i0)
+    intensity_var = np.random.poisson(intensity_var).astype(np.float32)
+    intensity_var[intensity_var <= 0] = 1.0
+    sino_var = -np.log(intensity_var / total_i0)
 
-    return noisy_sino_ref, noisy_sino_var, angles_ref, angles_var
+    return sino_ref, sino_var, angles_ref, angles_var

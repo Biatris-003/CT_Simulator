@@ -19,7 +19,7 @@ from skimage.transform import resize
 def get_mu_for_material(material_id: int, kvp: float) -> float:
     """Return a simple kVp-dependent linear attenuation coefficient."""
     kvp = max(float(kvp), 1.0)
-    e_eff = kvp * 0.4
+    e_eff = kvp * 0.4 # 30-50% of energies 
 
     if material_id == 1:  # Soft tissue
         return 0.2 * (60.0 / e_eff) ** 0.5
