@@ -88,10 +88,11 @@ python main.py
 - NumPy
 - Matplotlib
 - scikit-image
+- SciPy
 
 Install dependencies:
 ```bash
-pip install PyQt5 numpy matplotlib scikit-image
+pip install -r requirements.txt
 ```
 
 ## Design Benefits
