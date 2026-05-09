@@ -9,11 +9,6 @@ This implements the proper SIRT algorithm with numerical stability improvements:
 5. Decreasing step size over iterations
 6. Proper forward/backward projection consistency
 
-PERFORMANCE IMPROVEMENT (Option C):
-- The SIRT loop runs the image at 256x256 working resolution, then upsamples
-  the result back to the original resolution at the end.
-- circle=True is kept throughout to avoid detector-row shape mismatches.
-- ~4x speedup with negligible quality loss for CT simulator use.
 """
 
 import numpy as np
