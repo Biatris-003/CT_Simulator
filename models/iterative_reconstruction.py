@@ -65,7 +65,7 @@ class IterativeReconstruction:
 
     @staticmethod
     def sirt_reconstruction(sinogram, angles, iterations=5, damping_factor=0.05,
-                            initial_guess=None, verbose=False):
+                            initial_guess=None, initial_guess_scale="normalized", verbose=False):
         """
         SIRT (Simultaneous Iterative Reconstruction Technique) - Numerically Stable.
 
@@ -91,6 +91,8 @@ class IterativeReconstruction:
                 Smaller values = more stable but slower convergence.
             initial_guess (np.ndarray, optional): Pre-computed initial FBP.
                 If None, will compute it internally.
+            initial_guess_scale (str): "normalized" if guess is based on
+                sinogram_normalized, "raw" if based on the original sinogram.
             verbose (bool): Print convergence info per iteration.
 
         Returns:
@@ -123,6 +125,11 @@ class IterativeReconstruction:
 
         # ── Initialize x at working resolution ──────────────────────────────
         if initial_guess is not None:
+            initial_guess_scale = str(initial_guess_scale).lower()
+            if initial_guess_scale not in ("normalized", "raw"):
+                raise ValueError("initial_guess_scale must be 'normalized' or 'raw'")
+            if initial_guess_scale == "raw":
+                initial_guess = initial_guess / sino_max
             x = _resize_image(initial_guess.astype(np.float32), _SIRT_WORK_SIZE)
             if verbose:
                 print(f"\nUsing provided initial guess (resized to {_SIRT_WORK_SIZE}x{_SIRT_WORK_SIZE})")

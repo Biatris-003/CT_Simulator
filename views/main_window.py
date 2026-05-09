@@ -57,9 +57,11 @@ class SimulatorCTLabApp(QMainWindow):
         self._cached_full_angles = None
         self._cached_sparse_angles = None
         self._cached_step_angle = None
+        self._cached_full_sino_key = None
         self._cached_sparse_fbp = None
         self._cached_full_fbp = None
         self._cached_sparse_lsr = None
+        self._cached_sparse_lsr_key = None
         self._cached_full_lsr = None
         self._cached_full_lsr_key = None   
 
@@ -247,7 +249,8 @@ class SimulatorCTLabApp(QMainWindow):
     def _render_sinograms(self, mu_map, total_i0):
         if mu_map is None or total_i0 is None: return
 
-        if (self._cached_sparse_sino is None or self._cached_full_sino is None or self._cached_step_angle != self.step_angle):
+        full_key = (self._cached_spectrum_key, id(mu_map))
+        if self._cached_full_sino is None or self._cached_full_sino_key != full_key:
             QApplication.processEvents()
             full_sino, sparse_sino, full_angles, sparse_angles = generate_physics_sinogram(
                 mu_map, total_i0, user_step_angle=self.step_angle,
@@ -257,10 +260,28 @@ class SimulatorCTLabApp(QMainWindow):
             self._cached_full_angles = full_angles
             self._cached_sparse_angles = sparse_angles
             self._cached_step_angle = self.step_angle
+            self._cached_full_sino_key = full_key
 
             self._cached_sparse_fbp = None
             self._cached_full_fbp = None
             self._cached_sparse_lsr = None
+            self._cached_sparse_lsr_key = None
+            self._cached_full_lsr = None
+            self._cached_full_lsr_key = None
+            return
+
+        if self._cached_sparse_sino is None or self._cached_step_angle != self.step_angle:
+            QApplication.processEvents()
+            _, sparse_sino, _, sparse_angles = generate_physics_sinogram(
+                mu_map, total_i0, user_step_angle=self.step_angle, return_full=False,
+            )
+            self._cached_sparse_sino = sparse_sino
+            self._cached_sparse_angles = sparse_angles
+            self._cached_step_angle = self.step_angle
+
+            self._cached_sparse_fbp = None
+            self._cached_sparse_lsr = None
+            self._cached_sparse_lsr_key = None
 
     def _render_sparse_fbp_only(self):
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None: return
@@ -287,18 +308,31 @@ class SimulatorCTLabApp(QMainWindow):
     def _render_sparse_lsr_only(self):
         if self._cached_sparse_sino is None or self._cached_sparse_angles is None: return
 
-        QApplication.processEvents()
-        sparse_lsr = IterativeReconstruction.sirt_reconstruction(
-            self._cached_sparse_sino, self._cached_sparse_angles,
-            iterations=self.iterations, damping_factor=0.05, verbose=False,
-        )
+        sparse_lsr_key = (self.iterations, self.step_angle, self._cached_spectrum_key)
+        if self._cached_sparse_lsr is None or self._cached_sparse_lsr_key != sparse_lsr_key:
+            QApplication.processEvents()
+            if self._cached_sparse_fbp is None:
+                self._cached_sparse_fbp = SparseReconstruction.fbp_reconstruction(
+                    self._cached_sparse_sino, self._cached_sparse_angles, filter_name="ramp",
+                )
+            self._cached_sparse_lsr = IterativeReconstruction.sirt_reconstruction(
+                self._cached_sparse_sino, self._cached_sparse_angles,
+                iterations=self.iterations, damping_factor=0.05,
+                initial_guess=self._cached_sparse_fbp, initial_guess_scale="raw",
+                verbose=False,
+            )
+            self._cached_sparse_lsr_key = sparse_lsr_key
+
+        sparse_lsr = self._cached_sparse_lsr
 
         full_lsr_key = (self.iterations, self._cached_spectrum_key)
         if self._cached_full_lsr is None or self._cached_full_lsr_key != full_lsr_key:
             QApplication.processEvents()
+            full_guess = self._cached_full_fbp
             self._cached_full_lsr = IterativeReconstruction.sirt_reconstruction(
                 self._cached_full_sino, self._cached_full_angles,
                 iterations=self.iterations, damping_factor=0.05, verbose=False,
+                initial_guess=full_guess, initial_guess_scale="raw",
             )
             self._cached_full_lsr_key = full_lsr_key
 
