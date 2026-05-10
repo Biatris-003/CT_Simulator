@@ -24,7 +24,7 @@ class LSRMetricDialog(QDialog):
 
         # 1. ABSOLUTE ISOLATION: Build private memory from scratch
         _, original_map = build_three_material_mu_map(size=phantom_size, kvp=kVp)
-        _, _, total_i0 = generate_spectrum_physics(kVp, mA, Cu, Al)
+        _, _, total_i0 = generate_spectrum_physics(kVp, mA)
 
         self.original = np.array(original_map, copy=True, dtype=np.float32)
         self.total_i0 = float(total_i0)
@@ -128,7 +128,7 @@ class LSRMetricDialog(QDialog):
 
     def _recompute_sinograms(self):
         # 2. STATE ENFORCEMENT: Force backend modules to reset global variables to THIS dialog's state
-        generate_spectrum_physics(self.kVp, self.mA, self.Cu, self.Al)
+        generate_spectrum_physics(self.kVp, self.mA)
 
         full_sino, sparse_sino, full_angles, sparse_angles = generate_physics_sinogram(
             self.original, self.total_i0, user_step_angle=self.step_angle,
@@ -149,7 +149,7 @@ class LSRMetricDialog(QDialog):
         self.sparse_nmse, self.sparse_psnr = float(m['nmse']), float(m['psnr'])
 
     def _recompute_sparse_reconstruction(self):
-        generate_spectrum_physics(self.kVp, self.mA, self.Cu, self.Al)
+        generate_spectrum_physics(self.kVp, self.mA)
 
         recon = IterativeReconstruction.sirt_reconstruction(
             self.sparse_sino, self.sparse_angles, iterations=self.iterations, damping_factor=self.damping_factor, verbose=False

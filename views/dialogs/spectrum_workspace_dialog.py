@@ -345,7 +345,7 @@ class SpectrumWorkspaceDialog(QDialog):
         spectrum_key = (self.kVp, self.mA, self.Cu, self.Al)
         if self._cached_spectrum_key != spectrum_key or self.energies is None:
             self.energies, self.q, self._cached_total_i0 = generate_spectrum_physics(
-                self.kVp, self.mA, self.Cu, self.Al,
+                self.kVp, self.mA,
             )
             self._cached_spectrum_key = spectrum_key
 

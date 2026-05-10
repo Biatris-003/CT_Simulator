@@ -360,7 +360,7 @@ class SimulatorCTLabApp(QMainWindow):
         if self._cached_spectrum_key != spectrum_key or self._cached_mu_map is None:
             QApplication.processEvents()
             _, self._cached_mu_map = build_three_material_mu_map(size=self.material_phantom.shape[0], kvp=self.kVp)
-            _, _, self._cached_total_i0 = generate_spectrum_physics(self.kVp, self.mA, self.Cu, self.Al)
+            _, _, self._cached_total_i0 = generate_spectrum_physics(self.kVp, self.mA)
             self._cached_spectrum_key = spectrum_key
             self._cached_full_lsr = None
             self._cached_full_lsr_key = None

@@ -24,7 +24,7 @@ class FBPMetricDialog(QDialog):
 
         # 1. ABSOLUTE ISOLATION: Build private memory from scratch
         _, original_map = build_three_material_mu_map(size=phantom_size, kvp=kVp)
-        _, _, total_i0 = generate_spectrum_physics(kVp, mA, Cu, Al)
+        _, _, total_i0 = generate_spectrum_physics(kVp, mA)
         
         self.original = np.array(original_map, copy=True, dtype=np.float32)
         self.total_i0 = float(total_i0)
@@ -106,7 +106,7 @@ class FBPMetricDialog(QDialog):
 
     def _recompute_and_render(self):
         # 2. STATE ENFORCEMENT: Force backend modules to reset global variables to THIS dialog's state
-        generate_spectrum_physics(self.kVp, self.mA, self.Cu, self.Al)
+        generate_spectrum_physics(self.kVp, self.mA)
 
         full_sino, sparse_sino, full_angles, sparse_angles = generate_physics_sinogram(
             self.original, self.total_i0, user_step_angle=self.step_angle,
