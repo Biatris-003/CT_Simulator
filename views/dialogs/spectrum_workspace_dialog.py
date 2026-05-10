@@ -1,6 +1,5 @@
 import datetime
 import numpy as np
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QDialog,
@@ -11,12 +10,8 @@ from PyQt5.QtWidgets import (
     QSlider,
     QVBoxLayout,
 )
-# =========================
-# MATPLOTLIB QT BACKEND (Object-Oriented Only - NO PLT)
-# =========================
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-
 from models.phantom_material_map import (
     get_mu_for_material,
     build_three_material_phantom,

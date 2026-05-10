@@ -1,23 +1,11 @@
 import sys
 import os
-
-# =========================
-# PYTHON STANDARD LIBRARIES
-# =========================
 import numpy as np
-
-# =========================
-# PYQT5
-# =========================
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QGroupBox, QPushButton, QLabel, QSlider, QSizePolicy
 )
 from PyQt5.QtCore import Qt
-
-# =========================
-# MATPLOTLIB QT BACKEND (Object-Oriented Only)
-# =========================
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure 
 from matplotlib.colors import ListedColormap

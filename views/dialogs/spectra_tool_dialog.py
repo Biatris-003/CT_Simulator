@@ -3,10 +3,6 @@ import numpy as np
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QLabel, QPushButton, QGroupBox, QSlider)
 from PyQt5.QtCore import Qt
-
-# =========================
-# MATPLOTLIB QT BACKEND (Object-Oriented Only - NO PLT)
-# =========================
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 

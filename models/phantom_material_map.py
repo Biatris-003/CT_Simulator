@@ -1,26 +1,12 @@
-"""Utilities for building a 3-material CT phantom and attenuation map.
-
-This module converts the Shepp-Logan phantom into three material classes:
-- Air / background
-- Soft tissue
-- Bone
-
-The attenuation coefficients depend on the selected kVp, while the spectrum
-current (mA) is kept as a separate display/input value for the acquisition.
-"""
-
 from __future__ import annotations
-
 import numpy as np
 from skimage.data import shepp_logan_phantom
 from skimage.transform import resize
 
 
 def get_mu_for_material(material_id: int, kvp: float) -> float:
-    """Return a simple kVp-dependent linear attenuation coefficient."""
     kvp = max(float(kvp), 1.0)
     e_eff = kvp * 0.4
-
     if material_id == 1:  # Soft tissue
         return 0.2 * (60.0 / e_eff) ** 0.5
     if material_id == 2:  # Bone
@@ -28,8 +14,7 @@ def get_mu_for_material(material_id: int, kvp: float) -> float:
     return 0.0002  # Air / background
 
 
-def build_three_material_phantom(size: int = 512):
-    """Build a 3-material phantom map with material IDs 0, 1, and 2."""
+def build_three_material_phantom(size: int = 512):  # materials ID = 0, 1, and 2
     phantom = shepp_logan_phantom()
     phantom = resize(phantom, (size, size), anti_aliasing=True)
 
@@ -40,7 +25,6 @@ def build_three_material_phantom(size: int = 512):
 
 
 def build_three_material_mu_map(size: int = 512, kvp: float = 120.0):
-    """Build a 3-material attenuation map from the Shepp-Logan phantom."""
     material_map = build_three_material_phantom(size=size)
 
     mu_air = get_mu_for_material(0, kvp)

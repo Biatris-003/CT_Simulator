@@ -1,7 +1,3 @@
-"""
-Configuration constants for CT Simulator application
-"""
-
 # Application Settings
 APP_NAME = "CTlab Simulator"
 APP_VERSION = "1.4"

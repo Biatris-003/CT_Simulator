@@ -1,5 +1,3 @@
-# style.py
-
 def apply_matplotlib_theme():
     import matplotlib.pyplot as plt
     plt.style.use('dark_background')
